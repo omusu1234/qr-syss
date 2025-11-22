@@ -69,7 +69,8 @@
 
         <div id="locationStatus" class="alert alert-info">
             <span class="status-indicator status-warning"></span>
-            <strong>Getting location...</strong> Please allow location access.
+            <strong>Getting location...</strong> Please allow location access.<br>
+            <small>Please be patient. GPS location may take 10-30 seconds to lock.</small>
         </div>
 
         <form id="attendanceForm">
@@ -152,7 +153,7 @@
             positionCount = 0;
         
             statusDiv.className = 'alert alert-info';
-            statusDiv.innerHTML = '<span class="status-indicator status-warning"></span> Getting GPS location...';
+            statusDiv.innerHTML = '<span class="status-indicator status-warning"></span> <strong>Getting GPS location...</strong><br><small>Please be patient. This may take 10-30 seconds for accurate GPS signal.</small>';
         
             if (!navigator.geolocation) {
                 statusDiv.className = 'alert alert-warning';
@@ -179,7 +180,8 @@
                     updateCoordinates(lng, lat);
         
                     statusDiv.innerHTML = `<span class="status-indicator status-warning"></span>
-                        Reading ${positionCount}... Accuracy: ±${Math.round(accuracy)}m`;
+                        <strong>Reading ${positionCount}...</strong> Accuracy: ±${Math.round(accuracy)}m<br>
+                        <small>Please be patient. GPS is refining your location for better accuracy.</small>`;
         
                     if (accuracy < 70) finalizeGPS(position);
                 },
