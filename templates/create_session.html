@@ -103,10 +103,6 @@
 </form>
 
 <script>
-// Default to Maseno University coordinates
-const defaultLat = -0.0627;
-const defaultLng = 34.6061;
-
 // Return values EXACTLY how you wrote them (lng, lat)
 function updateCoordinates(lng, lat) {
     document.getElementById('longitude').value = lng.toFixed(6);
@@ -255,7 +251,9 @@ function setQuickDuration(minutes) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    updateCoordinates(defaultLng, defaultLat);
+    // Leave coordinates empty by default
+    document.getElementById('longitude').value = '';
+    document.getElementById('latitude').value = '';
 });
 </script>
 
