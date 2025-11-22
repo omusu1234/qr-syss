@@ -5,27 +5,6 @@
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-qr-code"></i> Create New QR Session</h2>
 
-<!-- Mapbox GL JS -->
-<script src='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js'></script>
-<link href='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css' rel='stylesheet' />
-<!-- Mapbox Geocoder -->
-<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-<link rel="stylesheet"
-    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
-
-<style>
-    #map {
-        height: 400px;
-        width: 100%;
-        border-radius: 8px;
-        margin-bottom: 15px;
-    }
-
-    .mapboxgl-ctrl-geocoder {
-        min-width: 100%;
-    }
-</style>
-
 <form method="POST" action="{{ url_for('create_session') }}">
     <div class="row">
         <div class="col-md-6">
@@ -54,7 +33,7 @@
             <div class="mb-3">
                 <label for="location_radius" class="form-label">Location Radius (meters)</label>
                 <input type="number" class="form-control" id="location_radius" name="location_radius" min="1" step="1"
-                    value="100" required onchange="updateRadiusCircle()">
+                    value="100" required>
                 <small class="text-muted">Maximum distance in meters from the hall location</small>
             </div>
 
@@ -75,33 +54,28 @@
 
         <div class="col-md-6">
             <div class="mb-3">
-                <label class="form-label">Lecture Hall Location</label>
+                <label class="form-label">Lecture Hall Location (GPS Coordinates)</label>
                 <div id="locationStatus" class="alert alert-info d-none" role="alert"></div>
 
-                <div id="map"></div>
-
-                <div class="row g-2">
+                <div class="row g-2 mb-3">
                     <div class="col-6">
-                        <label for="latitude" class="form-label small">Latitude</label>
-                        <input type="number" step="any" class="form-control form-control-sm" id="latitude"
-                            name="latitude" required readonly>
+                        <label for="latitude" class="form-label">Latitude</label>
+                        <input type="number" step="any" class="form-control" id="latitude"
+                            name="latitude" required placeholder="-0.0627">
                     </div>
                     <div class="col-6">
-                        <label for="longitude" class="form-label small">Longitude</label>
-                        <input type="number" step="any" class="form-control form-control-sm" id="longitude"
-                            name="longitude" required readonly>
+                        <label for="longitude" class="form-label">Longitude</label>
+                        <input type="number" step="any" class="form-control" id="longitude"
+                            name="longitude" required placeholder="34.6061">
                     </div>
                 </div>
 
-                <div class="mt-2 text-center">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="getCurrentLocation()" id="locationBtn">
-                        <i class="bi bi-geo-alt"></i> Use My Current Location
+                <div class="text-center">
+                    <button type="button" class="btn btn-primary" onclick="getCurrentLocation()" id="locationBtn">
+                        <i class="bi bi-geo-alt"></i> Use My Current Location (GPS)
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="improveLocationAccuracy()" id="improveBtn" style="display: none;">
-                        <i class="bi bi-arrow-clockwise"></i> Improve Accuracy
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="searchMaseno()" id="masenoBtn">
-                        <i class="bi bi-search"></i> Find Maseno University
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="improveLocationAccuracy()" id="improveBtn" style="display: none;">
+                        <i class="bi bi-arrow-clockwise"></i> Retry GPS
                     </button>
                 </div>
                 <div class="mt-2">
@@ -129,110 +103,14 @@
 </form>
 
 <script>
-    mapboxgl.accessToken = '{{ mapbox_access_token }}';
-
-    // Default to Maseno University if no location found
-    // Maseno University coordinates: -0.0627, 34.6061
+    // Default to Maseno University coordinates
     const defaultLat = -0.0627;
     const defaultLng = 34.6061;
-
-    const map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [defaultLng, defaultLat],
-        zoom: 13
-    });
-
-    // Add navigation controls
-    map.addControl(new mapboxgl.NavigationControl());
-
-    // Add geocoder (search)
-    const geocoder = new MapboxGeocoder({
-        accessToken: mapboxgl.accessToken,
-        mapboxgl: mapboxgl,
-        marker: false,
-        placeholder: 'Search for a place...'
-    });
-    map.addControl(geocoder);
-
-    // Draggable marker
-    const marker = new mapboxgl.Marker({
-        draggable: true,
-        color: "#3B82F6"
-    })
-        .setLngLat([defaultLng, defaultLat])
-        .addTo(map);
-
-    // Radius circle source and layer
-    map.on('load', () => {
-        map.addSource('radius-source', {
-            type: 'geojson',
-            data: getCircleGeoJSON([defaultLng, defaultLat], 100)
-        });
-
-        map.addLayer({
-            id: 'radius-layer',
-            type: 'fill',
-            source: 'radius-source',
-            paint: {
-                'fill-color': '#3B82F6',
-                'fill-opacity': 0.2,
-                'fill-outline-color': '#2563EB'
-            }
-        });
-    });
 
     function updateCoordinates(lng, lat) {
         document.getElementById('longitude').value = lng.toFixed(6);
         document.getElementById('latitude').value = lat.toFixed(6);
-
-        // Update radius circle
-        const radius = parseInt(document.getElementById('location_radius').value) || 100;
-        if (map.getSource('radius-source')) {
-            map.getSource('radius-source').setData(getCircleGeoJSON([lng, lat], radius));
-        }
     }
-
-    function onDragEnd() {
-        const lngLat = marker.getLngLat();
-        updateCoordinates(lngLat.lng, lngLat.lat);
-    }
-
-    marker.on('dragend', onDragEnd);
-
-    // Update marker when clicking on map
-    map.on('click', (e) => {
-        const coords = e.lngLat;
-        marker.setLngLat(coords);
-        updateCoordinates(coords.lng, coords.lat);
-        
-        // Update status
-        const statusDiv = document.getElementById('locationStatus');
-        statusDiv.classList.remove('d-none');
-        statusDiv.className = 'alert alert-success';
-        statusDiv.textContent = `Location set by clicking on map: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
-        
-        const accuracyInfo = document.getElementById('accuracyInfo');
-        accuracyInfo.textContent = 'Location set manually by clicking on the map';
-        accuracyInfo.className = 'text-info';
-    });
-
-    // Update marker when searching
-    geocoder.on('result', (e) => {
-        const coords = e.result.center;
-        marker.setLngLat(coords);
-        updateCoordinates(coords[0], coords[1]);
-        
-        // Update status
-        const statusDiv = document.getElementById('locationStatus');
-        statusDiv.classList.remove('d-none');
-        statusDiv.className = 'alert alert-success';
-        statusDiv.textContent = `Location found: ${e.result.place_name}`;
-        
-        const accuracyInfo = document.getElementById('accuracyInfo');
-        accuracyInfo.textContent = 'Location set by search';
-        accuracyInfo.className = 'text-info';
-    });
 
     // Get current location - GPS only, single reading
     function getCurrentLocation() {
@@ -250,7 +128,7 @@
 
         if (!navigator.geolocation) {
             statusDiv.className = 'alert alert-warning';
-            statusDiv.textContent = 'Geolocation is not supported by your browser. Please use the search box or drag the marker.';
+            statusDiv.textContent = 'Geolocation is not supported by your browser. Please enter coordinates manually.';
             locationBtn.disabled = false;
             return;
         }
@@ -287,7 +165,7 @@
                     statusDiv.innerHTML = `⚠️ <strong>Location accuracy is poor</strong><br>
                         Accuracy: ±${Math.round(accuracy)} meters<br>
                         This might be using network location instead of GPS.<br><br>
-                        <strong>For better accuracy:</strong> Enable GPS on your device and click "Improve Accuracy"`;
+                        <strong>For better accuracy:</strong> Enable GPS on your device and click "Retry GPS"`;
                     accuracyInfo.textContent = `⚠️ Poor accuracy: ±${Math.round(accuracy)} meters - May not be GPS`;
                     accuracyInfo.className = 'text-warning';
                     locationBtn.disabled = false;
@@ -303,13 +181,7 @@
                     improveBtn.style.display = 'none';
                 }
 
-                // Update map and marker
-                map.flyTo({
-                    center: [lng, lat],
-                    zoom: Math.max(17, Math.min(20, 18 - Math.log10(accuracy))) // Zoom based on accuracy
-                });
-
-                marker.setLngLat([lng, lat]);
+                // Update coordinates
                 updateCoordinates(lng, lat);
             },
             (error) => {
@@ -325,7 +197,7 @@
                         errorMsg = 'Location information unavailable. Please check your GPS settings.';
                         break;
                     case error.TIMEOUT:
-                        errorMsg = 'Location request timed out. Please try again or use the search box.';
+                        errorMsg = 'Location request timed out. Please try again or enter coordinates manually.';
                         break;
                     default:
                         errorMsg += error.message;
@@ -347,111 +219,11 @@
         getCurrentLocation();
     }
 
-    // Search for Maseno University location
-    function searchMaseno() {
-        const statusDiv = document.getElementById('locationStatus');
-        statusDiv.classList.remove('d-none');
-        statusDiv.className = 'alert alert-info';
-        statusDiv.textContent = 'Searching for Maseno University...';
-        
-        // Use Mapbox Geocoding API to search for Maseno University
-        const query = 'Maseno University, Kenya';
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
-        
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.features && data.features.length > 0) {
-                    const coords = data.features[0].center;
-                    const placeName = data.features[0].place_name;
-                    
-                    map.flyTo({
-                        center: coords,
-                        zoom: 17
-                    });
-                    
-                    marker.setLngLat(coords);
-                    updateCoordinates(coords[0], coords[1]);
-                    
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.textContent = `Found: ${placeName}`;
-                    
-                    const accuracyInfo = document.getElementById('accuracyInfo');
-                    accuracyInfo.textContent = 'Location set by searching for Maseno University';
-                    accuracyInfo.className = 'text-success';
-                } else {
-                    statusDiv.className = 'alert alert-warning';
-                    statusDiv.textContent = 'Could not find Maseno University. Please use the search box above to search manually.';
-                }
-            })
-            .catch(error => {
-                statusDiv.className = 'alert alert-danger';
-                statusDiv.textContent = 'Error searching for Maseno University. Please use the search box above.';
-                console.error('Error:', error);
-            });
-    }
-
-    // Calculate distance between two coordinates in meters (Haversine formula)
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371000; // Earth's radius in meters
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    // Helper to generate circle GeoJSON
-    function getCircleGeoJSON(center, radiusInMeters, points = 64) {
-        const coords = {
-            latitude: center[1],
-            longitude: center[0]
-        };
-
-        const km = radiusInMeters / 1000;
-
-        const ret = [];
-        const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
-        const distanceY = km / 110.574;
-
-        let theta, x, y;
-        for (let i = 0; i < points; i++) {
-            theta = (i / points) * (2 * Math.PI);
-            x = distanceX * Math.cos(theta);
-            y = distanceY * Math.sin(theta);
-
-            ret.push([coords.longitude + x, coords.latitude + y]);
-        }
-        ret.push(ret[0]);
-
-        return {
-            type: 'Feature',
-            geometry: {
-                type: 'Polygon',
-                coordinates: [ret]
-            }
-        };
-    }
-
-    function updateRadiusCircle() {
-        const lng = parseFloat(document.getElementById('longitude').value);
-        const lat = parseFloat(document.getElementById('latitude').value);
-        if (!isNaN(lng) && !isNaN(lat)) {
-            const radius = parseInt(document.getElementById('location_radius').value) || 100;
-            if (map.getSource('radius-source')) {
-                map.getSource('radius-source').setData(getCircleGeoJSON([lng, lat], radius));
-            }
-        }
-    }
-
     function setQuickDuration(minutes) {
         document.getElementById('qr_expiry_minutes').value = minutes;
     }
 
-    // Initialize coordinates with default values (don't auto-get location)
+    // Initialize coordinates with default values
     document.addEventListener('DOMContentLoaded', () => {
         // Set default coordinates to Maseno University
         updateCoordinates(defaultLng, defaultLat);

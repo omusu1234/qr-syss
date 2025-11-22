@@ -381,8 +381,7 @@ def create_session():
         # Handle GET request
         if request.method == 'GET':
             try:
-                mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                return render_template('create_session.html', units=units)
             except Exception as e:
                 app.logger.error(f"Error rendering create_session template (GET): {str(e)}", exc_info=True)
                 flash(f'Error loading page: {str(e)}', 'error')
@@ -402,8 +401,7 @@ def create_session():
                     
                     if not lat_str or not lng_str:
                         flash('Please provide both latitude and longitude coordinates.', 'error')
-                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                        return render_template('create_session.html', units=units)
                     
                     latitude = float(lat_str)
                     longitude = float(lng_str)
@@ -411,19 +409,16 @@ def create_session():
                     # Validate coordinate ranges
                     if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
                         flash('Invalid coordinate values. Latitude must be between -90 and 90, longitude between -180 and 180.', 'error')
-                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                        return render_template('create_session.html', units=units)
                     
                     # Check for obviously invalid coordinates (0,0 is in the ocean off Africa, unlikely for a lecture hall)
                     if latitude == 0.0 and longitude == 0.0:
                         flash('Coordinates cannot be (0, 0). Please use your actual location.', 'error')
-                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                        return render_template('create_session.html', units=units)
                         
                 except (ValueError, TypeError) as e:
                     flash(f'Invalid latitude or longitude values. Please enter valid numbers. Error: {str(e)}', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                     
                 # Get and validate location radius
                 try:
@@ -443,20 +438,17 @@ def create_session():
                 
                 if not unit_id or not session_name:
                     flash('Please fill in all required fields', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                 
                 # Verify unit belongs to lecturer
                 unit = Unit.query.get(unit_id)
                 if not unit:
                     flash('Invalid unit selected', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                 
                 if unit.lecturer_id != lecturer.id:
                     flash('You do not have permission to create sessions for this unit', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                 
                 # Generate unique QR code token
                 qr_token = secrets.token_urlsafe(32)
@@ -479,8 +471,7 @@ def create_session():
                 except Exception as e:
                     app.logger.error(f"Error generating QR code: {str(e)}", exc_info=True)
                     flash(f'Error generating QR code: {str(e)}', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                 
                 # Calculate expiration time using custom duration
                 expires_at = datetime.utcnow() + timedelta(minutes=qr_expiry_minutes)
@@ -525,8 +516,7 @@ def create_session():
                     db.session.rollback()
                     app.logger.error(f"Error creating session in database: {str(e)}", exc_info=True)
                     flash(f'Error saving session to database: {str(e)}. Please try again.', 'error')
-                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    return render_template('create_session.html', units=units)
                 
                 # Sync to other databases
                 session_data = {
@@ -560,8 +550,7 @@ def create_session():
                 db.session.rollback()
                 app.logger.error(f"Unexpected error in create_session (POST): {str(e)}", exc_info=True)
                 flash(f'An unexpected error occurred: {str(e)}. Please try again.', 'error')
-                mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
-                return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                return render_template('create_session.html', units=units)
     except Exception as e:
         app.logger.error(f"Unexpected error in create_session route: {str(e)}", exc_info=True)
         flash(f'An error occurred: {str(e)}. Please try again.', 'error')
