@@ -255,12 +255,53 @@
             return;
         }
 
-        // Use getCurrentPosition - single GPS reading
+        // Use getCurrentPosition - single GPS reading, reject network-based locations
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 const accuracy = position.coords.accuracy; // Accuracy in meters
+                
+                // Validate GPS vs network-based location
+                // Network-based locations typically have accuracy > 1000m
+                // GPS typically has accuracy < 100m, but can be 100-500m in some conditions
+                // Reject if accuracy is very poor (definitely network-based)
+                if (accuracy > 1000) {
+                    statusDiv.className = 'alert alert-danger';
+                    statusDiv.innerHTML = `⚠️ <strong>Network-based location detected (not GPS)</strong><br>
+                        Accuracy: ±${Math.round(accuracy)} meters - This is too poor for GPS.<br><br>
+                        <strong>This location was rejected.</strong> Please:<br>
+                        1. Enable GPS on your device<br>
+                        2. Go outside or near a window for better GPS signal<br>
+                        3. Click "Use My Current Location" again`;
+                    accuracyInfo.textContent = `⚠️ Rejected: Network-based (accuracy: ±${Math.round(accuracy)}m) - Enable GPS and try again`;
+                    accuracyInfo.className = 'text-danger';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'inline-block';
+                    return; // Don't update coordinates - reject network-based location
+                }
+
+                // Warn if accuracy is borderline (100-1000m) - might be network or poor GPS
+                if (accuracy > 100 && accuracy <= 1000) {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.innerHTML = `⚠️ <strong>Location accuracy is poor</strong><br>
+                        Accuracy: ±${Math.round(accuracy)} meters<br>
+                        This might be using network location instead of GPS.<br><br>
+                        <strong>For better accuracy:</strong> Enable GPS on your device and click "Improve Accuracy"`;
+                    accuracyInfo.textContent = `⚠️ Poor accuracy: ±${Math.round(accuracy)} meters - May not be GPS`;
+                    accuracyInfo.className = 'text-warning';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'inline-block';
+                    // Still update coordinates but warn user
+                } else {
+                    // Good GPS accuracy (<= 100m)
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.textContent = `GPS location found! Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.className = 'text-success';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'none';
+                }
 
                 // Update map and marker
                 map.flyTo({
@@ -270,13 +311,6 @@
 
                 marker.setLngLat([lng, lat]);
                 updateCoordinates(lng, lat);
-
-                // Show accuracy information
-                statusDiv.className = 'alert alert-success';
-                statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
-                accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
-                accuracyInfo.className = 'text-success';
-                locationBtn.disabled = false;
             },
             (error) => {
                 locationBtn.disabled = false;
@@ -301,9 +335,9 @@
                 accuracyInfo.textContent = '';
             },
             {
-                enableHighAccuracy: true,  // Force GPS only
-                timeout: 30000,            // 30 second timeout
-                maximumAge: 0              // Don't use cached position - get fresh GPS reading
+                enableHighAccuracy: true,  // Request GPS (browser may still fall back to network)
+                timeout: 30000,            // 30 second timeout - give GPS time to lock
+                maximumAge: 0              // Don't use cached position - get fresh reading
             }
         );
     }
