@@ -103,20 +103,24 @@
 </form>
 
 <script>
-// Default to Maseno University coordinates
+// Default to Maseno University
 const defaultLat = -0.0627;
 const defaultLng = 34.6061;
 
-// Return values EXACTLY how you wrote them (lng, lat)
 function updateCoordinates(lng, lat) {
-    document.getElementById('longitude').value = lng.toFixed(6);
-    document.getElementById('latitude').value = lat.toFixed(6);
+    document.getElementById('longitude').value = lng.toFixed(7);
+    document.getElementById('latitude').value = lat.toFixed(7);
 }
 
 let watchId = null;
 let bestPosition = null;
-let positionCount = 0;
+let samples = [];
 let gpsFinalized = false;
+let positionCount = 0;
+
+const STRICT_MIN_SAMPLES = 10;
+const STRICT_ACCURACY_LIMIT = 50;
+const VERY_STRICT_FILTER = 25;
 
 function getCurrentLocation() {
     const statusDiv = document.getElementById('locationStatus');
@@ -125,25 +129,25 @@ function getCurrentLocation() {
     const accuracyInfo = document.getElementById('accuracyInfo');
 
     statusDiv.classList.remove('d-none');
-    statusDiv.className = 'alert alert-info';
-    statusDiv.textContent = 'Getting GPS location... Please wait for best accuracy.';
-    accuracyInfo.textContent = '';
+    statusDiv.className = "alert alert-info";
+    statusDiv.textContent = "Locking precise GPS... Stand still for best accuracy.";
+    accuracyInfo.textContent = "";
 
     gpsFinalized = false;
-    locationBtn.disabled = true;
-    improveBtn.style.display = 'none';
-
+    samples = [];
     bestPosition = null;
     positionCount = 0;
 
-    // Auto-show retry after 10s
+    locationBtn.disabled = true;
+    improveBtn.style.display = 'none';
+
     setTimeout(() => {
         if (!gpsFinalized) improveBtn.style.display = 'inline-block';
-    }, 10000);
+    }, 12000);
 
     if (!navigator.geolocation) {
-        statusDiv.className = 'alert alert-warning';
-        statusDiv.textContent = 'Geolocation not supported on your device.';
+        statusDiv.classList.add("alert-warning");
+        statusDiv.textContent = "Geolocation not supported.";
         locationBtn.disabled = false;
         return;
     }
@@ -154,43 +158,49 @@ function getCurrentLocation() {
     }
 
     watchId = navigator.geolocation.watchPosition(
-        (position) => {
+        (pos) => {
             if (gpsFinalized) return;
 
-            positionCount++;
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const accuracy = pos.coords.accuracy;
 
+            positionCount++;
+
+            // Reject wild inaccurate points
+            if (accuracy > 200) return;
+
+            samples.push({ lat, lng, accuracy });
+
+            // Track best accuracy
             if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
-                bestPosition = position;
+                bestPosition = pos;
             }
 
             updateCoordinates(lng, lat);
 
             statusDiv.textContent = `Reading ${positionCount}... Current accuracy: ±${Math.round(accuracy)}m`;
 
-            let label = accuracy < 50 ? "excellent" :
-                        accuracy < 150 ? "usable" :
-                        "weak";
+            let average = calcWeightedAverage(samples);
 
-            accuracyInfo.textContent = `Best accuracy: ±${Math.round(bestPosition.coords.accuracy)}m (${label})`;
+            accuracyInfo.textContent =
+                `Best: ±${Math.round(bestPosition.coords.accuracy)}m | Smoothed: ±${Math.round(average.accuracy)}m`;
 
-            if (accuracy < 70) {
-                finalizeGPS(position, statusDiv, locationBtn, improveBtn, accuracyInfo);
+            // Strict: at least 10 readings AND accuracy < 50m consistency
+            if (
+                samples.length >= STRICT_MIN_SAMPLES &&
+                average.accuracy < STRICT_ACCURACY_LIMIT &&
+                bestPosition.coords.accuracy < STRICT_ACCURACY_LIMIT
+            ) {
+                finalizeGPS(average, statusDiv, locationBtn, improveBtn);
             }
         },
-        (error) => {
+        (err) => {
             gpsFinalized = true;
             if (watchId !== null) navigator.geolocation.clearWatch(watchId);
 
-            let msg = "GPS error: ";
-            if (error.code === error.PERMISSION_DENIED) msg = "Location permission denied.";
-            if (error.code === error.POSITION_UNAVAILABLE) msg = "Location unavailable.";
-            if (error.code === error.TIMEOUT) msg = "GPS timed out.";
-
             statusDiv.className = "alert alert-danger";
-            statusDiv.textContent = msg;
+            statusDiv.textContent = "GPS error. Move outside or try again.";
 
             locationBtn.disabled = false;
             improveBtn.style.display = 'inline-block';
@@ -202,48 +212,60 @@ function getCurrentLocation() {
         }
     );
 
-    // Fallback after 30s
     setTimeout(() => {
         if (gpsFinalized) return;
 
-        gpsFinalized = true;
-
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-
-        if (bestPosition) {
-            finalizeGPS(bestPosition, statusDiv, locationBtn, improveBtn, accuracyInfo);
+        if (samples.length >= 5) {
+            const avg = calcWeightedAverage(samples);
+            finalizeGPS(avg, statusDiv, locationBtn, improveBtn);
         } else {
             statusDiv.className = "alert alert-warning";
-            statusDiv.textContent = "Unable to get accurate GPS.";
-            locationBtn.disabled = false;
+            statusDiv.textContent = "Unable to achieve strict accuracy. Try again.";
         }
-    }, 30000);
+
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    }, 35000);
 }
 
-function finalizeGPS(position, statusDiv, locationBtn, improveBtn, accuracyInfo) {
-    const lat = position.coords.latitude;
-    const lng = position.coords.longitude;
-    const accuracy = position.coords.accuracy;
+// Weighted averaging for ultra precision
+function calcWeightedAverage(list) {
+    let sumLat = 0, sumLng = 0, sumWeight = 0;
+    let bestAcc = Infinity;
 
-    updateCoordinates(lng, lat);
+    for (const p of list) {
+        if (p.accuracy < bestAcc) bestAcc = p.accuracy;
+    }
 
+    for (const p of list) {
+        if (p.accuracy > bestAcc + VERY_STRICT_FILTER) continue;
+        let w = 1 / (p.accuracy + 1);
+        sumLat += p.lat * w;
+        sumLng += p.lng * w;
+        sumWeight += w;
+    }
+
+    return {
+        lat: sumLat / sumWeight,
+        lng: sumLng / sumWeight,
+        accuracy: bestAcc
+    };
+}
+
+function finalizeGPS(avg, statusDiv, locationBtn, improveBtn) {
     gpsFinalized = true;
 
-    statusDiv.className = 'alert alert-success';
-    statusDiv.textContent = `GPS locked! Accuracy: ±${Math.round(accuracy)}m`;
+    updateCoordinates(avg.lng, avg.lat);
 
-    accuracyInfo.textContent = `Final accuracy: ±${Math.round(accuracy)} meters`;
+    statusDiv.className = "alert alert-success";
+    statusDiv.textContent = `High-precision GPS locked! Accuracy: ±${Math.round(avg.accuracy)}m`;
+
+    document.getElementById("accuracyInfo").textContent =
+        `Final smoothed accuracy: ±${Math.round(avg.accuracy)}m`;
 
     locationBtn.disabled = false;
     improveBtn.style.display = 'none';
 
-    if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-    }
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
 }
 
 function improveLocationAccuracy() {
