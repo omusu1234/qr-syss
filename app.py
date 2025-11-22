@@ -588,8 +588,7 @@ def attendance_form(token):
                              token=token,
                              is_expired=is_expired,
                              expiry_minutes=expiry_minutes,
-                             expires_timestamp=expires_timestamp,
-                             mapbox_access_token=app.config['MAPBOX_ACCESS_TOKEN'])
+                             expires_timestamp=expires_timestamp)
     except Exception as e:
         app.logger.error(f"Error in attendance_form: {str(e)}", exc_info=True)
         return render_template('error.html', message=f'An internal error occurred: {str(e)}'), 500

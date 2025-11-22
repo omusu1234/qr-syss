@@ -8,10 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 
-    <!-- Mapbox GL JS -->
-    <script src='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js'></script>
-    <link href='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css' rel='stylesheet' />
-
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -26,13 +22,6 @@
             padding: 30px;
             max-width: 500px;
             margin: 0 auto;
-        }
-
-        #map {
-            height: 300px;
-            width: 100%;
-            border-radius: 8px;
-            margin-bottom: 20px;
         }
 
         .status-indicator {
@@ -83,8 +72,6 @@
             <strong>Getting location...</strong> Please allow location access.
         </div>
 
-        <div id="map"></div>
-
         <form id="attendanceForm">
             <div class="mb-3">
                 <label for="admission_no" class="form-label">Admission Number</label>
@@ -107,8 +94,6 @@
     </div>
 
     <script>
-        mapboxgl.accessToken = '{{ mapbox_access_token }}';
-
         let currentLatitude = null;
         let currentLongitude = null;
         const token = '{{ token }}';
@@ -117,76 +102,6 @@
         const lectureLat = {{ session.lecture_hall_latitude }};
         const lectureLng = {{ session.lecture_hall_longitude }};
         const locationRadius = {{ session.location_radius or 100 }};
-
-        // Initialize Map
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v12',
-            center: [lectureLng, lectureLat],
-            zoom: 16
-        });
-
-        // Add Lecture Hall Marker
-        new mapboxgl.Marker({ color: '#3B82F6' })
-            .setLngLat([lectureLng, lectureLat])
-            .setPopup(new mapboxgl.Popup().setHTML('<b>Lecture Hall</b>'))
-            .addTo(map);
-
-        // Student Marker
-        const studentMarker = new mapboxgl.Marker({ color: '#EF4444' })
-            .setLngLat([lectureLng, lectureLat])
-            .addTo(map);
-
-        // Add Radius Circle
-        map.on('load', () => {
-            map.addSource('radius-source', {
-                type: 'geojson',
-                data: getCircleGeoJSON([lectureLng, lectureLat], locationRadius)
-            });
-
-            map.addLayer({
-                id: 'radius-layer',
-                type: 'fill',
-                source: 'radius-source',
-                paint: {
-                    'fill-color': '#3B82F6',
-                    'fill-opacity': 0.1,
-                    'fill-outline-color': '#2563EB'
-                }
-            });
-        });
-
-        // Helper to generate circle GeoJSON
-        function getCircleGeoJSON(center, radiusInMeters, points = 64) {
-            const coords = {
-                latitude: center[1],
-                longitude: center[0]
-            };
-
-            const km = radiusInMeters / 1000;
-
-            const ret = [];
-            const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
-            const distanceY = km / 110.574;
-
-            let theta, x, y;
-            for (let i = 0; i < points; i++) {
-                theta = (i / points) * (2 * Math.PI);
-                x = distanceX * Math.cos(theta);
-                y = distanceY * Math.sin(theta);
-
-                ret.push([coords.longitude + x, coords.latitude + y]);
-            }
-            ret.push(ret[0]);
-
-            return {
-                type: 'Feature',
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [ret]
-                }
-            };
-        }
 
         // Calculate distance (Haversine)
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -212,15 +127,6 @@
                     currentLatitude = lat;
                     currentLongitude = lng;
 
-                    // Update Student Marker
-                    studentMarker.setLngLat([lng, lat]);
-
-                    // Fit bounds to show both markers
-                    const bounds = new mapboxgl.LngLatBounds();
-                    bounds.extend([lectureLng, lectureLat]);
-                    bounds.extend([lng, lat]);
-                    map.fitBounds(bounds, { padding: 50, maxZoom: 18 });
-
                     // Verify Distance
                     const distance = calculateDistance(lectureLat, lectureLng, lat, lng);
                     const statusDiv = document.getElementById('locationStatus');
@@ -230,10 +136,9 @@
                         statusDiv.className = 'alert alert-success';
                         statusDiv.innerHTML = `
                             <span class="status-indicator status-success"></span>
-                            <strong>Location Verified!</strong> You are within range (${distance.toFixed(0)}m).
+                            <strong>Location Verified!</strong> You are within range (${distance.toFixed(0)}m away).
                         `;
                         submitBtn.disabled = false;
-                        studentMarker.getElement().querySelector('svg path').setAttribute('fill', '#22C55E'); // Green
                     } else {
                         statusDiv.className = 'alert alert-danger';
                         statusDiv.innerHTML = `
@@ -241,7 +146,6 @@
                             <strong>Too Far!</strong> You are ${distance.toFixed(0)}m away (Max: ${locationRadius}m). Move closer.
                         `;
                         submitBtn.disabled = true;
-                        studentMarker.getElement().querySelector('svg path').setAttribute('fill', '#EF4444'); // Red
                     }
                 },
                 (error) => {
@@ -308,25 +212,24 @@
         // Countdown Timer
         {% if not is_expired and expires_timestamp %}
         (function () {
-            const expiresAt = {{ expires_timestamp }
-        };
-        const countdownElement = document.getElementById('countdown');
+            const expiresAt = {{ expires_timestamp }};
+            const countdownElement = document.getElementById('countdown');
 
-        setInterval(() => {
-            const now = Date.now();
-            const remaining = expiresAt - now;
+            setInterval(() => {
+                const now = Date.now();
+                const remaining = expiresAt - now;
 
-            if (remaining <= 0) {
-                countdownElement.innerHTML = '<span class="text-danger">Expired</span>';
-                document.getElementById('submitBtn').disabled = true;
-                return;
-            }
+                if (remaining <= 0) {
+                    countdownElement.innerHTML = '<span class="text-danger">Expired</span>';
+                    document.getElementById('submitBtn').disabled = true;
+                    return;
+                }
 
-            const minutes = Math.floor(remaining / 60000);
-            const seconds = Math.floor((remaining % 60000) / 1000);
-            countdownElement.innerHTML = `Expires in <strong>${minutes}m ${seconds}s</strong>`;
-        }, 1000);
-        }) ();
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                countdownElement.innerHTML = `Expires in <strong>${minutes}m ${seconds}s</strong>`;
+            }, 1000);
+        })();
         {% endif %}
     </script>
 </body>
