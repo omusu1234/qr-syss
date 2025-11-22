@@ -121,7 +121,7 @@
         
         statusDiv.classList.remove('d-none');
         statusDiv.className = 'alert alert-info';
-        statusDiv.innerHTML = '<strong>Getting GPS location...</strong><br><small>Please ensure GPS is enabled on your device. This may take 10-30 seconds for GPS to lock on satellites. If you\'re indoors, go outside or near a window for better signal.</small>';
+        statusDiv.textContent = 'Getting location...';
         locationBtn.disabled = true;
         improveBtn.style.display = 'none';
         accuracyInfo.textContent = '';
@@ -133,78 +133,23 @@
             return;
         }
 
-        // Use getCurrentPosition - single GPS reading, reject network-based locations
+        // Use getCurrentPosition - single GPS reading
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 const accuracy = position.coords.accuracy; // Accuracy in meters
-                
-                // Check for GPS indicators
-                const hasAltitude = position.coords.altitude !== null;
-                const hasAltitudeAccuracy = position.coords.altitudeAccuracy !== null;
-                const hasHeading = position.coords.heading !== null;
-                const hasSpeed = position.coords.speed !== null;
-                
-                // GPS typically provides: altitude, heading, speed
-                // Network-based typically doesn't provide these
-                const gpsIndicators = (hasAltitude ? 1 : 0) + (hasHeading ? 1 : 0) + (hasSpeed ? 1 : 0);
-                const likelyGPS = gpsIndicators >= 1 || (accuracy <= 50);
-                const likelyNetwork = accuracy > 500 || (accuracy > 100 && gpsIndicators === 0);
-                
-                // Show detected coordinates for user verification
-                const coordsDisplay = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
-                
-                // Strict rejection: Reject if accuracy > 500m (likely network-based)
-                if (likelyNetwork) {
-                    statusDiv.className = 'alert alert-danger';
-                    statusDiv.innerHTML = `⚠️ <strong>Network-based location detected (not GPS)</strong><br>
-                        <strong>Detected location:</strong> ${coordsDisplay}<br>
-                        <strong>Accuracy:</strong> ±${Math.round(accuracy)} meters (too poor for GPS)<br>
-                        <strong>GPS indicators:</strong> ${gpsIndicators}/3 (altitude, heading, speed)<br><br>
-                        <strong>This location was REJECTED.</strong><br><br>
-                        <strong>To get accurate GPS location:</strong><br>
-                        1. Enable GPS/Location Services on your device<br>
-                        2. Go OUTSIDE or near a WINDOW (GPS doesn't work well indoors)<br>
-                        3. Wait 10-15 seconds for GPS to lock on satellites<br>
-                        4. Click "Use My Current Location" again<br><br>
-                        <small>If the location shown above is incorrect, it means GPS is not being used.</small>`;
-                    accuracyInfo.textContent = `⚠️ REJECTED: Network-based location (accuracy: ±${Math.round(accuracy)}m, GPS indicators: ${gpsIndicators}/3)`;
-                    accuracyInfo.className = 'text-danger';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                    return; // Don't update coordinates - reject network-based location
-                }
 
-                // Warn if accuracy is borderline (50-500m) - might be poor GPS
-                if (accuracy > 50 && accuracy <= 500) {
-                    statusDiv.className = 'alert alert-warning';
-                    statusDiv.innerHTML = `⚠️ <strong>Location accuracy is moderate</strong><br>
-                        <strong>Detected location:</strong> ${coordsDisplay}<br>
-                        <strong>Accuracy:</strong> ±${Math.round(accuracy)} meters<br>
-                        <strong>GPS indicators:</strong> ${gpsIndicators}/3<br><br>
-                        <strong>Is this your correct location?</strong> If not, this might be using network location instead of GPS.<br><br>
-                        <strong>For better accuracy:</strong> Enable GPS, go outside, and click "Retry GPS"`;
-                    accuracyInfo.textContent = `⚠️ Moderate accuracy: ±${Math.round(accuracy)} meters (GPS indicators: ${gpsIndicators}/3) - Verify location is correct`;
-                    accuracyInfo.className = 'text-warning';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                    // Update coordinates but warn user to verify
-                    updateCoordinates(lng, lat);
-                } else {
-                    // Good GPS accuracy (<= 50m)
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.innerHTML = `✅ <strong>GPS location found!</strong><br>
-                        <strong>Location:</strong> ${coordsDisplay}<br>
-                        <strong>Accuracy:</strong> ±${Math.round(accuracy)} meters<br>
-                        <strong>GPS indicators:</strong> ${gpsIndicators}/3`;
-                    accuracyInfo.textContent = `✅ GPS Accuracy: ±${Math.round(accuracy)} meters (GPS indicators: ${gpsIndicators}/3)`;
-                    accuracyInfo.className = 'text-success';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'none';
-                    // Update coordinates
-                    updateCoordinates(lng, lat);
-                }
+                // Update coordinates
+                updateCoordinates(lng, lat);
+
+                // Show success message
+                statusDiv.className = 'alert alert-success';
+                statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
+                accuracyInfo.textContent = `Accuracy: ±${Math.round(accuracy)} meters`;
+                accuracyInfo.className = 'text-success';
+                locationBtn.disabled = false;
+                improveBtn.style.display = 'none';
             },
             (error) => {
                 locationBtn.disabled = false;
