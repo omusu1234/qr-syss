@@ -1,263 +1,177 @@
-{% extends "base.html" %}
-
-{% block title %}Create QR Session{% endblock %}
-
-{% block content %}
-<h2 class="mb-4"><i class="bi bi-qr-code"></i> Create New QR Session</h2>
-
-<form method="POST" action="{{ url_for('create_session') }}">
-    <div class="row">
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label for="unit_id" class="form-label">Select Unit/Course</label>
-                <select class="form-select" id="unit_id" name="unit_id" required>
-                    <option value="">Choose a unit...</option>
-                    {% for unit in units %}
-                    <option value="{{ unit.id }}">{{ unit.unit_code }} - {{ unit.unit_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label for="session_name" class="form-label">Session Name</label>
-                <input type="text" class="form-control" id="session_name" name="session_name"
-                    placeholder="e.g., Lecture 1 - Introduction" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="hall_name" class="form-label">Hall Name (Optional)</label>
-                <input type="text" class="form-control" id="hall_name" name="hall_name"
-                    placeholder="e.g., Main Hall, Room 101">
-            </div>
-
-            <div class="mb-3">
-                <label for="location_radius" class="form-label">Location Radius (meters)</label>
-                <input type="number" class="form-control" id="location_radius" name="location_radius" min="1" step="1"
-                    value="100" required>
-                <small class="text-muted">Maximum distance in meters from the hall location</small>
-            </div>
-
-            <div class="mb-3">
-                <label for="qr_expiry_minutes" class="form-label">QR Code Expiry (minutes)</label>
-                <input type="number" class="form-control" id="qr_expiry_minutes" name="qr_expiry_minutes" min="1"
-                    max="1440" step="1" value="120" required>
-                <div class="mt-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="setQuickDuration(30)">30m</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="setQuickDuration(60)">1h</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                        onclick="setQuickDuration(120)">2h</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label class="form-label">Lecture Hall Location (GPS Coordinates)</label>
-                <div id="locationStatus" class="alert alert-info d-none" role="alert"></div>
-
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <label for="latitude" class="form-label">Latitude</label>
-                        <input type="number" step="any" class="form-control" id="latitude"
-                            name="latitude" required placeholder="-0.0627">
-                    </div>
-                    <div class="col-6">
-                        <label for="longitude" class="form-label">Longitude</label>
-                        <input type="number" step="any" class="form-control" id="longitude"
-                            name="longitude" required placeholder="34.6061">
-                    </div>
-                </div>
-
-                <div class="text-center">
-                    <button type="button" class="btn btn-primary" onclick="getCurrentLocation()" id="locationBtn">
-                        <i class="bi bi-geo-alt"></i> Use My Current Location (GPS)
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="improveLocationAccuracy()" id="improveBtn" style="display: none;">
-                        <i class="bi bi-arrow-clockwise"></i> Retry GPS
-                    </button>
-                </div>
-                <div class="mt-2">
-                    <small class="text-muted" id="accuracyInfo"></small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="mb-3">
-        <label for="session_start_time" class="form-label">Session Start Time (Optional)</label>
-        <input type="datetime-local" class="form-control" id="session_start_time" name="session_start_time">
-    </div>
-
-    <div class="mb-3">
-        <label for="late_threshold_minutes" class="form-label">Late Arrival Threshold (minutes)</label>
-        <input type="number" class="form-control" id="late_threshold_minutes" name="late_threshold_minutes" min="0"
-            step="1" value="15">
-    </div>
-
-    <button type="submit" class="btn btn-primary">
-        <i class="bi bi-qr-code-scan"></i> Generate QR Code
-    </button>
-    <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-secondary">Cancel</a>
-</form>
-
 <script>
     // Default to Maseno University coordinates
     const defaultLat = -0.0627;
     const defaultLng = 34.6061;
-
+    
+    // DO NOT CHANGE SIGNATURE AS REQUESTED
     function updateCoordinates(lng, lat) {
         document.getElementById('longitude').value = lng.toFixed(6);
         document.getElementById('latitude').value = lat.toFixed(6);
     }
-
+    
     let watchId = null;
     let bestPosition = null;
     let positionCount = 0;
-
-    // Get current location - wait for accurate GPS
+    let gpsFinalized = false;  // Prevents race conditions
+    
     function getCurrentLocation() {
         const statusDiv = document.getElementById('locationStatus');
         const locationBtn = document.getElementById('locationBtn');
         const improveBtn = document.getElementById('improveBtn');
         const accuracyInfo = document.getElementById('accuracyInfo');
-        
+    
         statusDiv.classList.remove('d-none');
         statusDiv.className = 'alert alert-info';
-        statusDiv.textContent = 'Getting GPS location... Waiting for accurate signal...';
-        locationBtn.disabled = true;
-        improveBtn.style.display = 'none';
+        statusDiv.textContent = 'Getting GPS location... Please wait for best accuracy.';
+        accuracyInfo.classList.remove('text-success');
         accuracyInfo.textContent = '';
-        
-        // Reset tracking
+    
+        locationBtn.disabled = true;
+        gpsFinalized = false;
+        improveBtn.style.display = 'none';
+    
         bestPosition = null;
         positionCount = 0;
-
+    
+        // Auto-show retry if GPS is slow
+        setTimeout(() => {
+            if (!gpsFinalized) improveBtn.style.display = 'inline-block';
+        }, 10000);
+    
         if (!navigator.geolocation) {
             statusDiv.className = 'alert alert-warning';
-            statusDiv.textContent = 'Geolocation is not supported by your browser. Please enter coordinates manually.';
+            statusDiv.textContent = 'Geolocation not supported on this device.';
             locationBtn.disabled = false;
             return;
         }
-
-        // Clear any existing watch
+    
+        // Clear existing watchers
         if (watchId !== null) {
             navigator.geolocation.clearWatch(watchId);
             watchId = null;
         }
-
-        // Use watchPosition to continuously refine location until we get accurate GPS
+    
         watchId = navigator.geolocation.watchPosition(
             (position) => {
+                if (gpsFinalized) return;
+    
                 positionCount++;
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
-                const accuracy = position.coords.accuracy; // Accuracy in meters
-
-                // Store the best (most accurate) position
-                if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+                const accuracy = position.coords.accuracy;
+    
+                // Store best accuracy so far
+                if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
                     bestPosition = position;
                 }
-
-                // Update coordinates with current reading
+    
                 updateCoordinates(lng, lat);
-
+    
                 // Show progress
-                statusDiv.className = 'alert alert-info';
-                statusDiv.textContent = `Getting GPS... (Reading ${positionCount}) - Current accuracy: ±${Math.round(accuracy)}m`;
-                accuracyInfo.textContent = `Best accuracy so far: ±${Math.round(bestPosition.coords.accuracy)}m`;
-
-                // If we get good GPS accuracy (< 100m), stop watching and use it
-                if (accuracy < 100) {
-                    if (watchId !== null) {
-                        navigator.geolocation.clearWatch(watchId);
-                        watchId = null;
-                    }
-                    
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.textContent = `GPS location found! Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.className = 'text-success';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'none';
+                statusDiv.textContent = `Reading ${positionCount}... Current accuracy: ±${Math.round(accuracy)}m`;
+    
+                // Dynamic accuracy tiers  
+                let accuracyLabel = '';
+                if (accuracy < 50) accuracyLabel = 'excellent';
+                else if (accuracy < 150) accuracyLabel = 'usable';
+                else accuracyLabel = 'weak';
+    
+                accuracyInfo.textContent =
+                    `Best accuracy: ±${Math.round(bestPosition.coords.accuracy)}m (${accuracyLabel})`;
+    
+                // Stop if accuracy is really good
+                if (accuracy < 70) {
+                    finalizeGPS(position, statusDiv, locationBtn, improveBtn, accuracyInfo);
                 }
             },
             (error) => {
-                if (watchId !== null) {
-                    navigator.geolocation.clearWatch(watchId);
-                    watchId = null;
-                }
-                
-                locationBtn.disabled = false;
-                statusDiv.className = 'alert alert-danger';
-                
-                let errorMsg = 'Error getting location: ';
-                switch(error.code) {
+                gpsFinalized = true;
+                if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    
+                let msg = '';
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        errorMsg = 'Location access denied. Please allow location access in your browser settings and try again.';
+                        msg = 'Location access denied. Enable location in your browser.';
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        errorMsg = 'Location information unavailable. Please check your GPS settings.';
+                        msg = 'Location unavailable. Check your GPS settings.';
                         break;
                     case error.TIMEOUT:
-                        errorMsg = 'Location request timed out. Please try again or enter coordinates manually.';
+                        msg = 'Location request timed out.';
                         break;
                     default:
-                        errorMsg += error.message;
+                        msg = 'Location error: ' + error.message;
                         break;
                 }
-                statusDiv.textContent = errorMsg;
+    
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = msg;
+    
                 accuracyInfo.textContent = '';
+                locationBtn.disabled = false;
+                improveBtn.style.display = 'inline-block';
             },
             {
-                enableHighAccuracy: true,  // Force GPS
-                timeout: 60000,            // 60 second timeout per reading
-                maximumAge: 0              // Don't use cached position - get fresh GPS reading
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0
             }
         );
-
-        // Fallback: After 30 seconds, use the best position we found
+    
+        // Hard timeout fallback
         setTimeout(() => {
+            if (gpsFinalized) return;
+    
+            gpsFinalized = true;
+    
             if (watchId !== null) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
-                
-                if (bestPosition) {
-                    const lat = bestPosition.coords.latitude;
-                    const lng = bestPosition.coords.longitude;
-                    const accuracy = bestPosition.coords.accuracy;
-                    
-                    updateCoordinates(lng, lat);
-                    
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.textContent = `Best accuracy achieved: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.className = 'text-success';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'none';
-                } else {
-                    statusDiv.className = 'alert alert-warning';
-                    statusDiv.textContent = 'Could not get accurate GPS location. Please try again or enter coordinates manually.';
-                    locationBtn.disabled = false;
-                }
             }
-        }, 30000); // 30 second timeout
+    
+            if (bestPosition) {
+                finalizeGPS(bestPosition, statusDiv, locationBtn, improveBtn, accuracyInfo);
+            } else {
+                statusDiv.className = 'alert alert-warning';
+                statusDiv.textContent = 'Could not achieve accurate GPS.';
+                locationBtn.disabled = false;
+            }
+        }, 30000);
     }
-
-    // Improve location accuracy by getting a fresh reading
+    
+    function finalizeGPS(position, statusDiv, locationBtn, improveBtn, accuracyInfo) {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+    
+        updateCoordinates(lng, lat);
+    
+        statusDiv.className = 'alert alert-success';
+        statusDiv.textContent = `GPS locked! Final accuracy: ±${Math.round(accuracy)}m`;
+    
+        accuracyInfo.textContent = `Final accuracy: ±${Math.round(accuracy)} meters`;
+        accuracyInfo.classList.add('text-success');
+    
+        gpsFinalized = true;
+        locationBtn.disabled = false;
+        improveBtn.style.display = 'none';
+    
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+    }
+    
     function improveLocationAccuracy() {
         getCurrentLocation();
     }
-
+    
     function setQuickDuration(minutes) {
         document.getElementById('qr_expiry_minutes').value = minutes;
     }
-
-    // Initialize coordinates with default values
+    
     document.addEventListener('DOMContentLoaded', () => {
-        // Set default coordinates to Maseno University
         updateCoordinates(defaultLng, defaultLat);
     });
-</script>
-{% endblock %}
+    </script>
+    
