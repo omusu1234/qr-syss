@@ -365,149 +365,207 @@ def lecturer_dashboard():
 @app.route('/lecturer/create-session', methods=['GET', 'POST'])
 @lecturer_required
 def create_session():
-    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
-    if not lecturer:
-        flash('Lecturer profile not found', 'error')
-        return redirect(url_for('logout'))
-    
-    units = Unit.query.filter_by(lecturer_id=lecturer.id).all()
-    
-    if request.method == 'POST':
-        unit_id = request.form.get('unit_id')
-        session_name = request.form.get('session_name')
-        hall_name = request.form.get('hall_name', '').strip()
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+        if not lecturer:
+            flash('Lecturer profile not found', 'error')
+            return redirect(url_for('logout'))
         
-        # Get and validate coordinates
-        try:
-            lat_str = request.form.get('latitude')
-            lng_str = request.form.get('longitude')
-            
-            if not lat_str or not lng_str:
-                flash('Please provide both latitude and longitude coordinates.', 'error')
-                return redirect(url_for('create_session'))
-            
-            latitude = float(lat_str)
-            longitude = float(lng_str)
-            
-            # Validate coordinate ranges
-            if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
-                flash('Invalid coordinate values. Latitude must be between -90 and 90, longitude between -180 and 180.', 'error')
-                return redirect(url_for('create_session'))
-            
-            # Check for obviously invalid coordinates (0,0 is in the ocean off Africa, unlikely for a lecture hall)
-            if latitude == 0.0 and longitude == 0.0:
-                flash('Coordinates cannot be (0, 0). Please use your actual location.', 'error')
-                return redirect(url_for('create_session'))
-                
-        except (ValueError, TypeError) as e:
-            flash(f'Invalid latitude or longitude values. Please enter valid numbers. Error: {str(e)}', 'error')
-            return redirect(url_for('create_session'))
-            
-        # Get and validate location radius
-        try:
-            location_radius = request.form.get('location_radius', type=int) or 100
-            if location_radius <= 0:
-                raise ValueError("Radius must be greater than 0")
-        except (ValueError, TypeError):
-            location_radius = 100  # Default value if invalid
+        units = Unit.query.filter_by(lecturer_id=lecturer.id).all()
         
-        # Get and validate QR expiry minutes
-        try:
-            qr_expiry_minutes = min(int(request.form.get('qr_expiry_minutes', 120, type=int)), 1440)
-            if qr_expiry_minutes <= 0:
-                raise ValueError("Expiry duration must be greater than 0")
-        except (ValueError, TypeError):
-            qr_expiry_minutes = 120  # Default value if invalid
+        # Check if lecturer has units
+        if not units:
+            flash('You need to have at least one unit assigned to create a session. Please contact an administrator.', 'error')
+            return redirect(url_for('lecturer_dashboard'))
         
-        if not unit_id or not session_name:
-            flash('Please fill in all required fields', 'error')
-            return render_template('create_session.html', units=units, mapbox_access_token=app.config['MAPBOX_ACCESS_TOKEN'])
-        
-        # Generate unique QR code token
-        qr_token = secrets.token_urlsafe(32)
-        
-        # Get base URL (handles both production and local)
-        base_url = get_base_url()
-        qr_url = f"{base_url}/attendance/{qr_token}"
-        
-        # Generate QR code image
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(qr_url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Convert to base64
-        img_buffer = io.BytesIO()
-        img.save(img_buffer, format='PNG')
-        img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-        
-        # Calculate expiration time using custom duration
-        expires_at = datetime.utcnow() + timedelta(minutes=qr_expiry_minutes)
-        
-        # Get session start time for late tracking (optional)
-        start_time_str = request.form.get('session_start_time')
-        session_start_time = None
-        if start_time_str:
+        # Handle GET request
+        if request.method == 'GET':
             try:
-                session_start_time = datetime.strptime(start_time_str, '%Y-%m-%dT%H:%M')
-            except ValueError:
-                pass
+                mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+            except Exception as e:
+                app.logger.error(f"Error rendering create_session template (GET): {str(e)}", exc_info=True)
+                flash(f'Error loading page: {str(e)}', 'error')
+                return redirect(url_for('lecturer_dashboard'))
         
-        late_threshold_str = request.form.get('late_threshold_minutes')
-        late_threshold = int(late_threshold_str) if late_threshold_str else 15
-        
-        # Log coordinates before storing (for debugging)
-        app.logger.info(f"Creating session with coordinates - Lat: {latitude}, Lng: {longitude}")
-        
-        # Create session
-        session_obj = LectureSession(
-            unit_id=unit_id,
-            session_name=session_name,
-            hall_name=hall_name if hall_name else None,
-            qr_code_token=qr_token,
-            qr_code_data=img_base64,
-            lecture_hall_latitude=latitude,
-            lecture_hall_longitude=longitude,
-            location_radius=location_radius,
-            expires_at=expires_at,
-            session_start_time=session_start_time,
-            late_threshold_minutes=late_threshold
-        )
-        
-        db.session.add(session_obj)
-        db.session.commit()
-        
-        # Verify coordinates were stored correctly
-        app.logger.info(f"Session created - Stored coordinates - Lat: {session_obj.lecture_hall_latitude}, Lng: {session_obj.lecture_hall_longitude}")
-        
-        # Sync to other databases
-        session_data = {
-            'id': session_obj.id,
-            'unit_id': session_obj.unit_id,
-            'session_name': session_obj.session_name,
-            'hall_name': session_obj.hall_name,
-            'qr_code_token': session_obj.qr_code_token,
-            'qr_code_data': session_obj.qr_code_data,
-            'lecture_hall_latitude': session_obj.lecture_hall_latitude,
-            'lecture_hall_longitude': session_obj.lecture_hall_longitude,
-            'location_radius': session_obj.location_radius,
-            'created_at': session_obj.created_at,
-            'expires_at': session_obj.expires_at,
-            'is_active': session_obj.is_active
-        }
-        # Sync to additional databases (non-blocking)
-        try:
-            get_db_sync().sync_session(session_data)
-        except Exception as e:
-            app.logger.warning(f"Database sync failed (non-critical): {str(e)}")
-        
-        flash('QR code generated successfully!', 'success')
-        # New session is never expired
-        return render_template('view_qr.html', 
-                             session=session_obj, 
-                             qr_url=qr_url,
-                             expiry_minutes=qr_expiry_minutes,
-                             is_expired=False)
+        # Handle POST request
+        if request.method == 'POST':
+            try:
+                unit_id = request.form.get('unit_id')
+                session_name = request.form.get('session_name')
+                hall_name = request.form.get('hall_name', '').strip()
+                
+                # Get and validate coordinates
+                try:
+                    lat_str = request.form.get('latitude')
+                    lng_str = request.form.get('longitude')
+                    
+                    if not lat_str or not lng_str:
+                        flash('Please provide both latitude and longitude coordinates.', 'error')
+                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    
+                    latitude = float(lat_str)
+                    longitude = float(lng_str)
+                    
+                    # Validate coordinate ranges
+                    if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+                        flash('Invalid coordinate values. Latitude must be between -90 and 90, longitude between -180 and 180.', 'error')
+                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    
+                    # Check for obviously invalid coordinates (0,0 is in the ocean off Africa, unlikely for a lecture hall)
+                    if latitude == 0.0 and longitude == 0.0:
+                        flash('Coordinates cannot be (0, 0). Please use your actual location.', 'error')
+                        mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                        return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                        
+                except (ValueError, TypeError) as e:
+                    flash(f'Invalid latitude or longitude values. Please enter valid numbers. Error: {str(e)}', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                    
+                # Get and validate location radius
+                try:
+                    location_radius = request.form.get('location_radius', type=int) or 100
+                    if location_radius <= 0:
+                        raise ValueError("Radius must be greater than 0")
+                except (ValueError, TypeError):
+                    location_radius = 100  # Default value if invalid
+                
+                # Get and validate QR expiry minutes
+                try:
+                    qr_expiry_minutes = min(int(request.form.get('qr_expiry_minutes', 120, type=int)), 1440)
+                    if qr_expiry_minutes <= 0:
+                        raise ValueError("Expiry duration must be greater than 0")
+                except (ValueError, TypeError):
+                    qr_expiry_minutes = 120  # Default value if invalid
+                
+                if not unit_id or not session_name:
+                    flash('Please fill in all required fields', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                
+                # Verify unit belongs to lecturer
+                unit = Unit.query.get(unit_id)
+                if not unit:
+                    flash('Invalid unit selected', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                
+                if unit.lecturer_id != lecturer.id:
+                    flash('You do not have permission to create sessions for this unit', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                
+                # Generate unique QR code token
+                qr_token = secrets.token_urlsafe(32)
+                
+                # Get base URL (handles both production and local)
+                base_url = get_base_url()
+                qr_url = f"{base_url}/attendance/{qr_token}"
+                
+                # Generate QR code image
+                try:
+                    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+                    qr.add_data(qr_url)
+                    qr.make(fit=True)
+                    img = qr.make_image(fill_color="black", back_color="white")
+                    
+                    # Convert to base64
+                    img_buffer = io.BytesIO()
+                    img.save(img_buffer, format='PNG')
+                    img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                except Exception as e:
+                    app.logger.error(f"Error generating QR code: {str(e)}", exc_info=True)
+                    flash(f'Error generating QR code: {str(e)}', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                
+                # Calculate expiration time using custom duration
+                expires_at = datetime.utcnow() + timedelta(minutes=qr_expiry_minutes)
+                
+                # Get session start time for late tracking (optional)
+                start_time_str = request.form.get('session_start_time')
+                session_start_time = None
+                if start_time_str:
+                    try:
+                        session_start_time = datetime.strptime(start_time_str, '%Y-%m-%dT%H:%M')
+                    except ValueError:
+                        pass
+                
+                late_threshold_str = request.form.get('late_threshold_minutes')
+                late_threshold = int(late_threshold_str) if late_threshold_str else 15
+                
+                # Log coordinates before storing (for debugging)
+                app.logger.info(f"Creating session with coordinates - Lat: {latitude}, Lng: {longitude}")
+                
+                # Create session
+                try:
+                    session_obj = LectureSession(
+                        unit_id=unit_id,
+                        session_name=session_name,
+                        hall_name=hall_name if hall_name else None,
+                        qr_code_token=qr_token,
+                        qr_code_data=img_base64,
+                        lecture_hall_latitude=latitude,
+                        lecture_hall_longitude=longitude,
+                        location_radius=location_radius,
+                        expires_at=expires_at,
+                        session_start_time=session_start_time,
+                        late_threshold_minutes=late_threshold
+                    )
+                    
+                    db.session.add(session_obj)
+                    db.session.commit()
+                    
+                    # Verify coordinates were stored correctly
+                    app.logger.info(f"Session created - Stored coordinates - Lat: {session_obj.lecture_hall_latitude}, Lng: {session_obj.lecture_hall_longitude}")
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.error(f"Error creating session in database: {str(e)}", exc_info=True)
+                    flash(f'Error saving session to database: {str(e)}. Please try again.', 'error')
+                    mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                    return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+                
+                # Sync to other databases
+                session_data = {
+                    'id': session_obj.id,
+                    'unit_id': session_obj.unit_id,
+                    'session_name': session_obj.session_name,
+                    'hall_name': session_obj.hall_name,
+                    'qr_code_token': session_obj.qr_code_token,
+                    'qr_code_data': session_obj.qr_code_data,
+                    'lecture_hall_latitude': session_obj.lecture_hall_latitude,
+                    'lecture_hall_longitude': session_obj.lecture_hall_longitude,
+                    'location_radius': session_obj.location_radius,
+                    'created_at': session_obj.created_at,
+                    'expires_at': session_obj.expires_at,
+                    'is_active': session_obj.is_active
+                }
+                # Sync to additional databases (non-blocking)
+                try:
+                    get_db_sync().sync_session(session_data)
+                except Exception as e:
+                    app.logger.warning(f"Database sync failed (non-critical): {str(e)}")
+                
+                flash('QR code generated successfully!', 'success')
+                # New session is never expired
+                return render_template('view_qr.html', 
+                                     session=session_obj, 
+                                     qr_url=qr_url,
+                                     expiry_minutes=qr_expiry_minutes,
+                                     is_expired=False)
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Unexpected error in create_session (POST): {str(e)}", exc_info=True)
+                flash(f'An unexpected error occurred: {str(e)}. Please try again.', 'error')
+                mapbox_token = app.config.get('MAPBOX_ACCESS_TOKEN', '')
+                return render_template('create_session.html', units=units, mapbox_access_token=mapbox_token)
+    except Exception as e:
+        app.logger.error(f"Unexpected error in create_session route: {str(e)}", exc_info=True)
+        flash(f'An error occurred: {str(e)}. Please try again.', 'error')
+        return redirect(url_for('lecturer_dashboard'))
 
 @app.route('/attendance/<token>')
 def attendance_form(token):
