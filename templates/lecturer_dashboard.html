@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Lecturer Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-person-badge"></i> Welcome, {{ lecturer.full_name }}
+    {% if notifications %}
+    <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-info position-relative">
+        <i class="bi bi-bell-fill"></i> Notifications
+        {% if notifications|length > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            {{ notifications|length }}
+        </span>
+        {% endif %}
+    </a>
+    {% else %}
+    <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-bell"></i> Notifications
+    </a>
+    {% endif %}
+</h2>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-book"></i> My Units</h5>
+                <h2 class="text-primary">{{ units|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-calendar-check"></i> Recent Sessions</h5>
+                <h2 class="text-success">{{ recent_sessions|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-grid gap-2 mb-4">
+    <a href="{{ url_for('create_session') }}" class="btn btn-primary btn-lg">
+        <i class="bi bi-plus-circle"></i> Create New QR Session
+    </a>
+    <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary">
+        <i class="bi bi-list-ul"></i> View All Sessions
+    </a>
+</div>
+
+{% if units %}
+<div class="mt-4">
+    <h4>My Units</h4>
+    <div class="list-group">
+        {% for unit in units %}
+        <div class="list-group-item">
+            <h5 class="mb-1">{{ unit.unit_code }}</h5>
+            <p class="mb-1">{{ unit.unit_name }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if recent_sessions %}
+<div class="mt-4">
+    <h4>Recent Sessions</h4>
+    <div class="list-group">
+        {% for session in recent_sessions %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">{{ session.session_name }}</h5>
+                <small>{{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+            <p class="mb-1">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</p>
+            <a href="{{ url_for('view_attendance', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
+                View Attendance
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if notifications %}
+<div class="mt-4">
+    <h4>
+        <i class="bi bi-bell"></i> Notifications
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-outline-primary">View All</a>
+    </h4>
+    <div class="list-group">
+        {% for notification in notifications[:5] %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">{{ notification.title }}</h6>
+                <small class="text-muted">{{ (notification.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+            <p class="mb-1">{{ notification.message[:150] }}{% if notification.message|length > 150 %}...{% endif %}</p>
+            <div>
+                <small class="text-muted">
+                    <i class="bi bi-person"></i> From: {{ notification.sender.username }}
+                </small>
+                <a href="{{ url_for('view_notification', notification_id=notification.id) }}" class="btn btn-sm btn-outline-primary ms-2">
+                    Read More
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+

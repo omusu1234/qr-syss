@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}View Attendance - {{ session.session_name }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-list-check"></i> Attendance Records
+</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">{{ session.session_name }}</h5>
+        <p class="card-text">
+            <strong>Unit:</strong> {{ session.unit.unit_code }} - {{ session.unit.unit_name }}<br>
+            {% if session.hall_name %}
+            <strong>Hall:</strong> {{ session.hall_name }}<br>
+            {% endif %}
+            <strong>Location Radius:</strong> {{ session.location_radius or 100 }} meters<br>
+            <strong>Created:</strong> {{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}<br>
+            <strong>Status:</strong> 
+            {% if session.is_active %}
+                <span class="badge bg-success">Active</span>
+            {% else %}
+                <span class="badge bg-danger">Expired</span>
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('view_attendance', session_id=session.id) }}" class="row g-3">
+            <div class="col-md-3">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ search or '' }}" placeholder="Admission No or Name">
+            </div>
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" 
+                       value="{{ start_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" 
+                       value="{{ end_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <h4>Students Attended: <span id="attendanceCount">{{ attendances|length }}</span></h4>
+    <div class="btn-group flex-wrap">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('export_attendance', session_id=session.id) }}">
+                    <i class="bi bi-file-earmark-excel"></i> Export to Excel
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('export_attendance_csv', session_id=session.id) }}">
+                    <i class="bi bi-filetype-csv"></i> Export to CSV
+                </a></li>
+            </ul>
+        </div>
+        <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+{% if attendances %}
+<div class="table-responsive" style="max-height: 75vh; overflow-y: auto; overflow-x: auto; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+    <table class="table table-striped table-hover table-sm mb-0">
+        <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background-color: #f8f9fa !important;">
+            <tr>
+                <th style="width: 4%; min-width: 40px;">#</th>
+                <th style="width: 15%; min-width: 120px;">Admission Number</th>
+                <th style="width: 25%; min-width: 180px;">Student Name</th>
+                <th style="width: 20%; min-width: 160px;">Submitted At</th>
+                <th style="width: 18%; min-width: 130px;">Location</th>
+                <th style="width: 10%; min-width: 100px;">IP Address</th>
+                <th style="width: 8%; min-width: 80px;">Status</th>
+                <th style="width: 8%; min-width: 80px;">Flag</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for attendance in attendances %}
+            {% set ip_count = attendances|selectattr("ip_address", "equalto", attendance.ip_address)|list|length %}
+            {% set same_ip = ip_count > 1 %}
+            <tr {% if same_ip %}class="table-warning" title="Multiple submissions from same IP address"{% endif %}>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ attendance.admission_no }}</strong></td>
+                <td>{{ attendance.student_name }}</td>
+                <td>
+                    <small>{{ (attendance.submitted_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                </td>
+                <td>
+                    <small class="text-muted">
+                        {{ "%.6f"|format(attendance.submission_latitude) }}, 
+                        {{ "%.6f"|format(attendance.submission_longitude) }}
+                    </small>
+                </td>
+                <td>
+                    <small class="text-muted">{{ attendance.ip_address or 'N/A' }}</small>
+                </td>
+                <td>
+                    {% if attendance.is_late %}
+                    <span class="badge bg-danger" title="Arrived {{ attendance.arrival_minutes_late }} minutes late">
+                        <i class="bi bi-clock"></i> Late ({{ attendance.arrival_minutes_late }}m)
+                    </span>
+                    {% else %}
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> On Time
+                    </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if same_ip %}
+                    <span class="badge bg-warning text-dark" title="{{ ip_count }} submission(s) from this IP">
+                        <i class="bi bi-exclamation-triangle"></i> Check
+                    </span>
+                    {% else %}
+                    <span class="badge bg-secondary">OK</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+// Search functionality for attendance table
+document.getElementById('searchAttendance')?.addEventListener('keyup', function() {
+    const filter = this.value.toLowerCase();
+    const table = document.querySelector('.table-responsive table');
+    const rows = table.getElementsByTagName('tr');
+    let visibleCount = 0;
+    
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const text = row.textContent || row.innerText;
+        if (text.toLowerCase().indexOf(filter) > -1) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+    
+    document.getElementById('attendanceCount').textContent = visibleCount;
+});
+</script>
+<div class="mt-3 p-3 bg-light rounded">
+    <p class="mb-0">
+        <i class="bi bi-info-circle"></i> <strong>Total Students:</strong> <span class="badge bg-primary">{{ attendances|length }}</span>
+        {% if attendances|length >= 100 %}
+        <br><small class="text-muted mt-2 d-block">
+            <i class="bi bi-arrow-down"></i> Scroll down to view all students. All records are displayed in this scrollable table.
+        </small>
+        {% endif %}
+    </p>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No attendance records yet.
+</div>
+{% endif %}
+{% endblock %}
+

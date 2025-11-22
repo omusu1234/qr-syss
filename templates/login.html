@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Attendance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-wrapper {
+        min-height: calc(100vh - 100px);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .login-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        position: relative;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 1200px;
+    }
+
+    /* Soft White Background */
+    .login-container::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f5f5f5 100%);
+        z-index: -1;
+    }
+
+    /* Subtle Floating Particles - Soft Colors */
+    .particle {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(26, 71, 42, 0.05);
+        animation: float 25s infinite;
+        pointer-events: none;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0; }
+        50% { transform: translateY(-100vh) rotate(360deg); opacity: 0.4; }
+    }
+
+    /* Glass Morphism Card - Soft White */
+    .login-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 25px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1),
+                    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+        padding: 50px 40px;
+        max-width: 480px;
+        width: 100%;
+        position: relative;
+        animation: slideUp 0.8s ease-out;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+
+    .login-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Logo Styling */
+    .university-logo {
+        filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.3));
+    }
+
+    /* Typography */
+    .login-header h2 {
+        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        text-shadow: 0 2px 10px rgba(26, 71, 42, 0.3);
+    }
+
+    .login-header h3 {
+        color: #1a472a;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    /* Form Styling */
+    .form-group {
+        position: relative;
+        margin-bottom: 25px;
+    }
+
+    .form-label {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 10px;
+        font-size: 0.95rem;
+        display: block;
+    }
+
+    .form-control, .form-select {
+        background: #ffffff;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0066cc;
+        box-shadow: 0 0 0 0.25rem rgba(0, 102, 204, 0.25);
+    }
+
+    .form-control:hover, .form-select:hover {
+        border-color: rgba(0, 102, 204, 0.4);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Input Icons */
+    .input-icon {
+        position: absolute;
+        right: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #1a472a;
+        font-size: 1.1rem;
+        pointer-events: none;
+    }
+
+    .form-group.has-icon .form-control {
+        padding-right: 50px;
+    }
+
+    /* Button Styling - Official Colors */
+    .btn-login {
+        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        border: none;
+        border-radius: 30px;
+        color: white;
+        font-weight: 600;
+        padding: 12px 30px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 20px rgba(0, 102, 204, 0.2);
+        z-index: 1;
+    }
+
+    .btn-login::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-login:hover::before {
+        left: 100%;
+    }
+
+    .btn-login:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0, 102, 204, 0.5);
+        background: linear-gradient(135deg, #003366 0%, #0066cc 100%);
+    }
+
+    .btn-login:active {
+        transform: translateY(-1px);
+    }
+
+    /* Select Arrow */
+    .form-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%231a472a' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 18px center;
+        background-size: 16px;
+        padding-right: 45px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .login-card {
+            padding: 35px 25px;
+        }
+    }
+
+    /* Ensure footer stays visible and above particles */
+    .login-wrapper {
+        padding-bottom: 80px;
+        position: relative;
+    }
+
+    .login-wrapper .text-center {
+        z-index: 999;
+    }
+</style>
+{% endblock %}
+
+{% block container %}
+<div class="login-wrapper">
+    <div class="login-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; max-width: 500px;">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <!-- Floating Particles -->
+    <div class="particle" style="width: 80px; height: 80px; left: 10%; animation-delay: 0s;"></div>
+    <div class="particle" style="width: 120px; height: 120px; left: 20%; animation-delay: 2s;"></div>
+    <div class="particle" style="width: 60px; height: 60px; left: 80%; animation-delay: 4s;"></div>
+    <div class="particle" style="width: 100px; height: 100px; left: 70%; animation-delay: 6s;"></div>
+    <div class="particle" style="width: 90px; height: 90px; left: 50%; animation-delay: 8s;"></div>
+
+    <div class="login-card">
+        <div class="text-center mb-5 login-header">
+            <!-- University Logo/Symbol -->
+            <div class="university-logo mb-4" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <img src="{{ url_for('static', filename='maseno logo.png') }}" alt="Maseno University Logo" style="width: 120px; height: auto;">
+            </div>
+            <h2 class="mt-3" style="font-size: 2.2rem;">Maseno University</h2>
+            <p class="text-muted mt-3" style="font-size: 1rem;">Please login to continue</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group has-icon">
+                <label for="username" class="form-label">
+                    <i class="bi bi-person-fill me-2"></i>Username
+                </label>
+                <input type="text" class="form-control" id="username" name="username" 
+                       placeholder="Enter your username" required autocomplete="username">
+                <span class="input-icon"><i class="bi bi-person"></i></span>
+            </div>
+
+            <div class="form-group has-icon">
+                <label for="password" class="form-label">
+                    <i class="bi bi-lock-fill me-2"></i>Password
+                </label>
+                <input type="password" class="form-control" id="password" name="password" 
+                       placeholder="Enter your password" required autocomplete="current-password">
+                <span class="input-icon"><i class="bi bi-lock"></i></span>
+            </div>
+
+            <div class="form-group">
+                <label for="role" class="form-label">
+                    <i class="bi bi-person-badge-fill me-2"></i>Login As
+                </label>
+                <select class="form-select" id="role" name="role" required>
+                    <option value="">Select your role...</option>
+                    <option value="lecturer">Lecturer</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-login">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+            </button>
+        </form>
+    </div>
+    </div>
+    <div class="text-center mt-4" style="color: #003366; font-size: 0.9rem; position: absolute; bottom: 20px; width: 100%; left: 0;">
+        <p class="mb-1"> 2025 Maseno University. All rights reserved.</p>
+        <p class="mb-0">Powered by <strong>DSSMU Tech Team</strong></p>
+    </div>
+</div>
+{% endblock %}

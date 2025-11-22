@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Create QR Session{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-qr-code"></i> Create New QR Session</h2>
+
+<!-- Mapbox GL JS -->
+<script src='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js'></script>
+<link href='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css' rel='stylesheet' />
+<!-- Mapbox Geocoder -->
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+<link rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css">
+
+<style>
+    #map {
+        height: 400px;
+        width: 100%;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+
+    .mapboxgl-ctrl-geocoder {
+        min-width: 100%;
+    }
+</style>
+
+<form method="POST" action="{{ url_for('create_session') }}">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="unit_id" class="form-label">Select Unit/Course</label>
+                <select class="form-select" id="unit_id" name="unit_id" required>
+                    <option value="">Choose a unit...</option>
+                    {% for unit in units %}
+                    <option value="{{ unit.id }}">{{ unit.unit_code }} - {{ unit.unit_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="session_name" class="form-label">Session Name</label>
+                <input type="text" class="form-control" id="session_name" name="session_name"
+                    placeholder="e.g., Lecture 1 - Introduction" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="hall_name" class="form-label">Hall Name (Optional)</label>
+                <input type="text" class="form-control" id="hall_name" name="hall_name"
+                    placeholder="e.g., Main Hall, Room 101">
+            </div>
+
+            <div class="mb-3">
+                <label for="location_radius" class="form-label">Location Radius (meters)</label>
+                <input type="number" class="form-control" id="location_radius" name="location_radius" min="1" step="1"
+                    value="100" required onchange="updateRadiusCircle()">
+                <small class="text-muted">Maximum distance in meters from the hall location</small>
+            </div>
+
+            <div class="mb-3">
+                <label for="qr_expiry_minutes" class="form-label">QR Code Expiry (minutes)</label>
+                <input type="number" class="form-control" id="qr_expiry_minutes" name="qr_expiry_minutes" min="1"
+                    max="1440" step="1" value="120" required>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="setQuickDuration(30)">30m</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="setQuickDuration(60)">1h</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                        onclick="setQuickDuration(120)">2h</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Lecture Hall Location</label>
+                <div id="locationStatus" class="alert alert-info d-none" role="alert"></div>
+
+                <div id="map"></div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label for="latitude" class="form-label small">Latitude</label>
+                        <input type="number" step="any" class="form-control form-control-sm" id="latitude"
+                            name="latitude" required readonly>
+                    </div>
+                    <div class="col-6">
+                        <label for="longitude" class="form-label small">Longitude</label>
+                        <input type="number" step="any" class="form-control form-control-sm" id="longitude"
+                            name="longitude" required readonly>
+                    </div>
+                </div>
+
+                <div class="mt-2 text-center">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="getCurrentLocation()">
+                        <i class="bi bi-geo-alt"></i> Use My Current Location
+                    </button>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> Drag the blue marker to adjust the exact location of the
+                        lecture hall.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="session_start_time" class="form-label">Session Start Time (Optional)</label>
+        <input type="datetime-local" class="form-control" id="session_start_time" name="session_start_time">
+    </div>
+
+    <div class="mb-3">
+        <label for="late_threshold_minutes" class="form-label">Late Arrival Threshold (minutes)</label>
+        <input type="number" class="form-control" id="late_threshold_minutes" name="late_threshold_minutes" min="0"
+            step="1" value="15">
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <i class="bi bi-qr-code-scan"></i> Generate QR Code
+    </button>
+    <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-secondary">Cancel</a>
+</form>
+
+<script>
+    mapboxgl.accessToken = '{{ mapbox_access_token }}';
+
+    // Default to Nairobi if no location found
+    const defaultLat = -1.2921;
+    const defaultLng = 36.8219;
+
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [defaultLng, defaultLat],
+        zoom: 13
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl());
+
+    // Add geocoder (search)
+    const geocoder = new MapboxGeocoder({
+        accessToken: mapboxgl.accessToken,
+        mapboxgl: mapboxgl,
+        marker: false,
+        placeholder: 'Search for a place...'
+    });
+    map.addControl(geocoder);
+
+    // Draggable marker
+    const marker = new mapboxgl.Marker({
+        draggable: true,
+        color: "#3B82F6"
+    })
+        .setLngLat([defaultLng, defaultLat])
+        .addTo(map);
+
+    // Radius circle source and layer
+    map.on('load', () => {
+        map.addSource('radius-source', {
+            type: 'geojson',
+            data: getCircleGeoJSON([defaultLng, defaultLat], 100)
+        });
+
+        map.addLayer({
+            id: 'radius-layer',
+            type: 'fill',
+            source: 'radius-source',
+            paint: {
+                'fill-color': '#3B82F6',
+                'fill-opacity': 0.2,
+                'fill-outline-color': '#2563EB'
+            }
+        });
+    });
+
+    function updateCoordinates(lng, lat) {
+        document.getElementById('longitude').value = lng.toFixed(6);
+        document.getElementById('latitude').value = lat.toFixed(6);
+
+        // Update radius circle
+        const radius = parseInt(document.getElementById('location_radius').value) || 100;
+        if (map.getSource('radius-source')) {
+            map.getSource('radius-source').setData(getCircleGeoJSON([lng, lat], radius));
+        }
+    }
+
+    function onDragEnd() {
+        const lngLat = marker.getLngLat();
+        updateCoordinates(lngLat.lng, lngLat.lat);
+    }
+
+    marker.on('dragend', onDragEnd);
+
+    // Update marker when searching
+    geocoder.on('result', (e) => {
+        const coords = e.result.center;
+        marker.setLngLat(coords);
+        updateCoordinates(coords[0], coords[1]);
+    });
+
+    // Get current location
+    function getCurrentLocation() {
+        const statusDiv = document.getElementById('locationStatus');
+        statusDiv.classList.remove('d-none');
+        statusDiv.textContent = 'Getting location...';
+
+        if (!navigator.geolocation) {
+            statusDiv.textContent = 'Geolocation is not supported by your browser.';
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                map.flyTo({
+                    center: [lng, lat],
+                    zoom: 17
+                });
+
+                marker.setLngLat([lng, lat]);
+                updateCoordinates(lng, lat);
+
+                statusDiv.classList.add('d-none');
+            },
+            (error) => {
+                statusDiv.textContent = 'Error getting location: ' + error.message;
+            },
+            { enableHighAccuracy: true }
+        );
+    }
+
+    // Helper to generate circle GeoJSON
+    function getCircleGeoJSON(center, radiusInMeters, points = 64) {
+        const coords = {
+            latitude: center[1],
+            longitude: center[0]
+        };
+
+        const km = radiusInMeters / 1000;
+
+        const ret = [];
+        const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+        const distanceY = km / 110.574;
+
+        let theta, x, y;
+        for (let i = 0; i < points; i++) {
+            theta = (i / points) * (2 * Math.PI);
+            x = distanceX * Math.cos(theta);
+            y = distanceY * Math.sin(theta);
+
+            ret.push([coords.longitude + x, coords.latitude + y]);
+        }
+        ret.push(ret[0]);
+
+        return {
+            type: 'Feature',
+            geometry: {
+                type: 'Polygon',
+                coordinates: [ret]
+            }
+        };
+    }
+
+    function updateRadiusCircle() {
+        const lng = parseFloat(document.getElementById('longitude').value);
+        const lat = parseFloat(document.getElementById('latitude').value);
+        if (!isNaN(lng) && !isNaN(lat)) {
+            const radius = parseInt(document.getElementById('location_radius').value) || 100;
+            if (map.getSource('radius-source')) {
+                map.getSource('radius-source').setData(getCircleGeoJSON([lng, lat], radius));
+            }
+        }
+    }
+
+    function setQuickDuration(minutes) {
+        document.getElementById('qr_expiry_minutes').value = minutes;
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+        getCurrentLocation();
+    });
+</script>
+{% endblock %}

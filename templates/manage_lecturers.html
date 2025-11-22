@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Lecturers{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-people"></i> Manage Lecturers, Units & Departments</h2>
+
+<div class="mb-4">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-4" id="managementTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="lecturers-tab" data-bs-toggle="tab" data-bs-target="#lecturers" 
+                type="button" role="tab" aria-controls="lecturers" aria-selected="true">
+            <i class="bi bi-people"></i> Lecturers
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="units-tab" data-bs-toggle="tab" data-bs-target="#units" 
+                type="button" role="tab" aria-controls="units" aria-selected="false">
+            <i class="bi bi-book"></i> Units
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="departments-tab" data-bs-toggle="tab" data-bs-target="#departments" 
+                type="button" role="tab" aria-controls="departments" aria-selected="false">
+            <i class="bi bi-building"></i> Departments
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="managementTabsContent">
+    <!-- Lecturers Tab -->
+    <div class="tab-pane fade show active" id="lecturers" role="tabpanel" aria-labelledby="lecturers-tab">
+        <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addLecturerModal">
+                    <i class="bi bi-person-plus"></i> Add New Lecturer
+                </button>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#bulkAssignModal" 
+                        {% if not lecturers %}disabled{% endif %}>
+                    <i class="bi bi-people"></i> Bulk Assign Department
+                </button>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <select class="form-select" id="filterDepartment" style="max-width: 200px;">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="input-group" style="max-width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="searchLecturers" placeholder="Search lecturers...">
+                </div>
+            </div>
+        </div>
+
+        {% if lecturers %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="lecturersTable">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Full Name</th>
+                        <th>Department</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Units</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lecturer in lecturers %}
+                    <tr>
+                        <td><strong>{{ lecturer.employee_id }}</strong></td>
+                        <td>{{ lecturer.full_name }}</td>
+                <td>
+                    {% if lecturer.department %}
+                        <span class="badge bg-primary" data-dept-id="{{ lecturer.department.id }}">{{ lecturer.department.name }}</span>
+                        <small class="text-muted">({{ lecturer.department.code }})</small>
+                    {% else %}
+                        <span class="text-muted" data-dept-id="">No department</span>
+                    {% endif %}
+                </td>
+                        <td>{{ lecturer.user.username }}</td>
+                        <td>{{ lecturer.user.email }}</td>
+                        <td>{{ lecturer.units|length }} units</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editLecturerModal{{ lecturer.id }}">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <form method="POST" action="{{ url_for('manage_lecturers') }}" style="display: inline;">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="lecturer_id" value="{{ lecturer.id }}">
+                                <button type="submit" class="btn btn-sm btn-danger" 
+                                        onclick="return confirm('Are you sure you want to delete this lecturer?')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No lecturers registered yet.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Units Tab -->
+    <div class="tab-pane fade" id="units" role="tabpanel" aria-labelledby="units-tab">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUnitModal">
+                <i class="bi bi-book-half"></i> Add New Unit
+            </button>
+            <div class="input-group" style="max-width: 300px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="searchUnits" placeholder="Search units...">
+            </div>
+        </div>
+
+        {% if units %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="unitsTable">
+                <thead>
+                    <tr>
+                        <th>Unit Code</th>
+                        <th>Unit Name</th>
+                        <th>Lecturer</th>
+                        <th>Department</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for unit in units %}
+                    <tr>
+                        <td><strong>{{ unit.unit_code }}</strong></td>
+                        <td>{{ unit.unit_name }}</td>
+                        <td>{{ unit.lecturer.full_name }}</td>
+                        <td>
+                            {% if unit.lecturer.department %}
+                                <span class="badge bg-primary">{{ unit.lecturer.department.code }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ unit.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editUnitModal{{ unit.id }}">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <form method="POST" action="{{ url_for('manage_lecturers') }}" style="display: inline;">
+                                <input type="hidden" name="action" value="delete_unit">
+                                <input type="hidden" name="unit_id" value="{{ unit.id }}">
+                                <button type="submit" class="btn btn-sm btn-danger" 
+                                        onclick="return confirm('Are you sure you want to delete this unit?')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No units registered yet.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Departments Tab -->
+    <div class="tab-pane fade" id="departments" role="tabpanel" aria-labelledby="departments-tab">
+        <div class="mb-3 d-flex justify-content-between align-items-center">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDepartmentModal">
+                <i class="bi bi-plus-circle"></i> Add New Department
+            </button>
+            <div class="input-group" style="max-width: 300px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="searchDepartments" placeholder="Search departments...">
+            </div>
+        </div>
+
+        {% if departments %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="departmentsTable">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Lecturers</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for department in departments %}
+                    <tr>
+                        <td><strong class="badge bg-primary">{{ department.code }}</strong></td>
+                        <td>{{ department.name }}</td>
+                        <td>{{ department.description or '-' }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ department.lecturers|length }} lecturer(s)</span>
+                        </td>
+                        <td>{{ department.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editDepartmentModal{{ department.id }}">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <form method="POST" action="{{ url_for('manage_lecturers') }}" style="display: inline;">
+                                <input type="hidden" name="action" value="delete_department">
+                                <input type="hidden" name="department_id" value="{{ department.id }}">
+                                <button type="submit" class="btn btn-sm btn-danger" 
+                                        onclick="return confirm('Are you sure you want to delete this department? This action cannot be undone if there are lecturers assigned to it.')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No departments created yet. Create your first department to get started.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Lecturer Modal -->
+<div class="modal fade" id="addLecturerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Lecturer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="create">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employee_id" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="employee_id" name="employee_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="department_id" class="form-label">Department</label>
+                        <select class="form-select" id="department_id" name="department_id">
+                            <option value="">Select Department (Optional)</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }} ({{ dept.code }})</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Create departments from the Departments tab</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Lecturer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Unit Modal -->
+<div class="modal fade" id="addUnitModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Unit</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="create_unit">
+                    <div class="mb-3">
+                        <label for="unit_code" class="form-label">Unit Code</label>
+                        <input type="text" class="form-control" id="unit_code" name="unit_code" 
+                               placeholder="e.g., CS101" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="unit_name" class="form-label">Unit Name</label>
+                        <input type="text" class="form-control" id="unit_name" name="unit_name" 
+                               placeholder="e.g., Introduction to Computer Science" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lecturer_id" class="form-label">Assign Lecturer</label>
+                        <select class="form-select" id="lecturer_id" name="lecturer_id" required>
+                            <option value="">Select lecturer...</option>
+                            {% for lecturer in lecturers %}
+                            <option value="{{ lecturer.id }}">{{ lecturer.full_name }} ({{ lecturer.employee_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Unit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Department Modal -->
+<div class="modal fade" id="addDepartmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Department</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="create_department">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Department Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="code" name="code" 
+                               placeholder="e.g., CS, ENG, MAT" required maxlength="20"
+                               style="text-transform: uppercase;">
+                        <small class="text-muted">Short code for the department (e.g., CS for Computer Science)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Department Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               placeholder="e.g., Computer Science" required maxlength="100">
+                        <small class="text-muted">Full name of the department</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="Brief description of the department"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Lecturer Modals -->
+{% for lecturer in lecturers %}
+<div class="modal fade" id="editLecturerModal{{ lecturer.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Lecturer: {{ lecturer.full_name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="edit">
+                    <input type="hidden" name="lecturer_id" value="{{ lecturer.id }}">
+                    <div class="mb-3">
+                        <label for="edit_username{{ lecturer.id }}" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="edit_username{{ lecturer.id }}" 
+                               name="username" value="{{ lecturer.user.username }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_email{{ lecturer.id }}" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="edit_email{{ lecturer.id }}" 
+                               name="email" value="{{ lecturer.user.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_password{{ lecturer.id }}" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="edit_password{{ lecturer.id }}" 
+                               name="password" placeholder="Leave blank to keep current password">
+                        <small class="text-muted">Only fill this if you want to change the password</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_full_name{{ lecturer.id }}" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="edit_full_name{{ lecturer.id }}" 
+                               name="full_name" value="{{ lecturer.full_name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_employee_id{{ lecturer.id }}" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="edit_employee_id{{ lecturer.id }}" 
+                               name="employee_id" value="{{ lecturer.employee_id }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_department_id{{ lecturer.id }}" class="form-label">Department</label>
+                        <select class="form-select" id="edit_department_id{{ lecturer.id }}" name="department_id">
+                            <option value="">No Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}" {% if lecturer.department_id == dept.id %}selected{% endif %}>
+                                {{ dept.name }} ({{ dept.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Lecturer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Bulk Assign Department Modal -->
+<div class="modal fade" id="bulkAssignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Assign Department to Lecturers</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="bulk_assign_department">
+                    <div class="mb-3">
+                        <label class="form-label">Select Lecturers</label>
+                        <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                            {% for lecturer in lecturers %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="lecturer_ids" 
+                                       value="{{ lecturer.id }}" id="bulk_lecturer{{ lecturer.id }}">
+                                <label class="form-check-label" for="bulk_lecturer{{ lecturer.id }}">
+                                    {{ lecturer.full_name }} ({{ lecturer.employee_id }})
+                                    {% if lecturer.department %}
+                                        <small class="text-muted">- Current: {{ lecturer.department.name }}</small>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="bulk_department_id" class="form-label">Assign to Department</label>
+                        <select class="form-select" id="bulk_department_id" name="bulk_department_id">
+                            <option value="">No Department (Remove)</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }} ({{ dept.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-uppercase department code
+document.getElementById('code')?.addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase();
+});
+
+// Auto-uppercase for edit department modals
+{% for department in departments %}
+document.getElementById('edit_dept_code{{ department.id }}')?.addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase();
+});
+{% endfor %}
+
+// Search functionality for tables
+function setupSearch(tableId, searchInputId) {
+    const searchInput = document.getElementById(searchInputId);
+    const table = document.getElementById(tableId);
+    if (searchInput && table) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = searchInput.value.toLowerCase();
+            const rows = table.getElementsByTagName('tr');
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const text = row.textContent || row.innerText;
+                if (text.toLowerCase().indexOf(filter) > -1) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        });
+    }
+}
+
+// Initialize search for all tables
+document.addEventListener('DOMContentLoaded', function() {
+    setupSearch('lecturersTable', 'searchLecturers');
+    setupSearch('unitsTable', 'searchUnits');
+    setupSearch('departmentsTable', 'searchDepartments');
+    
+    // Department filter for lecturers
+    const deptFilter = document.getElementById('filterDepartment');
+    const lecturersTable = document.getElementById('lecturersTable');
+    if (deptFilter && lecturersTable) {
+        deptFilter.addEventListener('change', function() {
+            const filterValue = this.value;
+            const rows = lecturersTable.getElementsByTagName('tr');
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                const deptCell = row.cells[2]; // Department column (index 2)
+                if (deptCell) {
+                    const deptBadge = deptCell.querySelector('[data-dept-id]');
+                    const deptId = deptBadge ? deptBadge.getAttribute('data-dept-id') : '';
+                    if (!filterValue || deptId === filterValue) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Notification - {{ notification.title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">{{ notification.title }}</h4>
+            <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <small class="text-muted">
+                <i class="bi bi-calendar"></i> {{ (notification.created_at|localtime).strftime('%B %d, %Y at %I:%M %p') }}
+            </small>
+            <br>
+            <small class="text-muted">
+                <i class="bi bi-person"></i> From: <strong>{{ notification.sender.username }}</strong>
+            </small>
+        </div>
+        
+        <div class="notification-content">
+            <p style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.6;">{{ notification.message }}</p>
+        </div>
+    </div>
+    <div class="card-footer">
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-secondary">
+            <i class="bi bi-list"></i> All Notifications
+        </a>
+        <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-house"></i> Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
