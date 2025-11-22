@@ -112,7 +112,11 @@
         document.getElementById('latitude').value = lat.toFixed(6);
     }
 
-    // Get current location - GPS only, single reading
+    let watchId = null;
+    let bestPosition = null;
+    let positionCount = 0;
+
+    // Get current location - wait for accurate GPS
     function getCurrentLocation() {
         const statusDiv = document.getElementById('locationStatus');
         const locationBtn = document.getElementById('locationBtn');
@@ -121,10 +125,14 @@
         
         statusDiv.classList.remove('d-none');
         statusDiv.className = 'alert alert-info';
-        statusDiv.textContent = 'Getting location...';
+        statusDiv.textContent = 'Getting GPS location... Waiting for accurate signal...';
         locationBtn.disabled = true;
         improveBtn.style.display = 'none';
         accuracyInfo.textContent = '';
+        
+        // Reset tracking
+        bestPosition = null;
+        positionCount = 0;
 
         if (!navigator.geolocation) {
             statusDiv.className = 'alert alert-warning';
@@ -133,25 +141,54 @@
             return;
         }
 
-        // Use getCurrentPosition - single GPS reading
-        navigator.geolocation.getCurrentPosition(
+        // Clear any existing watch
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        // Use watchPosition to continuously refine location until we get accurate GPS
+        watchId = navigator.geolocation.watchPosition(
             (position) => {
+                positionCount++;
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 const accuracy = position.coords.accuracy; // Accuracy in meters
 
-                // Update coordinates
+                // Store the best (most accurate) position
+                if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+                    bestPosition = position;
+                }
+
+                // Update coordinates with current reading
                 updateCoordinates(lng, lat);
 
-                // Show success message
-                statusDiv.className = 'alert alert-success';
-                statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
-                accuracyInfo.textContent = `Accuracy: ±${Math.round(accuracy)} meters`;
-                accuracyInfo.className = 'text-success';
-                locationBtn.disabled = false;
-                improveBtn.style.display = 'none';
+                // Show progress
+                statusDiv.className = 'alert alert-info';
+                statusDiv.textContent = `Getting GPS... (Reading ${positionCount}) - Current accuracy: ±${Math.round(accuracy)}m`;
+                accuracyInfo.textContent = `Best accuracy so far: ±${Math.round(bestPosition.coords.accuracy)}m`;
+
+                // If we get good GPS accuracy (< 100m), stop watching and use it
+                if (accuracy < 100) {
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                    }
+                    
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.textContent = `GPS location found! Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.className = 'text-success';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'none';
+                }
             },
             (error) => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                
                 locationBtn.disabled = false;
                 statusDiv.className = 'alert alert-danger';
                 
@@ -174,11 +211,38 @@
                 accuracyInfo.textContent = '';
             },
             {
-                enableHighAccuracy: true,  // Request GPS (browser may still fall back to network)
-                timeout: 45000,            // 45 second timeout - give GPS more time to lock on satellites
+                enableHighAccuracy: true,  // Force GPS
+                timeout: 60000,            // 60 second timeout per reading
                 maximumAge: 0              // Don't use cached position - get fresh GPS reading
             }
         );
+
+        // Fallback: After 30 seconds, use the best position we found
+        setTimeout(() => {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                
+                if (bestPosition) {
+                    const lat = bestPosition.coords.latitude;
+                    const lng = bestPosition.coords.longitude;
+                    const accuracy = bestPosition.coords.accuracy;
+                    
+                    updateCoordinates(lng, lat);
+                    
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.textContent = `Best accuracy achieved: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.className = 'text-success';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'none';
+                } else {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.textContent = 'Could not get accurate GPS location. Please try again or enter coordinates manually.';
+                    locationBtn.disabled = false;
+                }
+            }
+        }, 30000); // 30 second timeout
     }
 
     // Improve location accuracy by getting a fresh reading
