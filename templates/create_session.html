@@ -107,17 +107,6 @@
                 <div class="mt-2">
                     <small class="text-muted" id="accuracyInfo"></small>
                 </div>
-                <div class="mt-2">
-                    <div class="alert alert-light border" style="font-size: 0.85rem;">
-                        <strong><i class="bi bi-info-circle"></i> Location Tips:</strong>
-                        <ul class="mb-0 mt-2" style="padding-left: 1.2rem;">
-                            <li><strong>For best GPS accuracy:</strong> Enable GPS on your device, go outside or near a window</li>
-                            <li><strong>If GPS shows wrong location:</strong> Use "Find Maseno University" button or search for your exact location</li>
-                            <li><strong>Network/WiFi location is inaccurate:</strong> The system will warn you if it detects network-based location instead of GPS</li>
-                            <li><strong>Manual option:</strong> Click directly on the map or drag the blue marker to set exact location</li>
-                        </ul>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -245,10 +234,7 @@
         accuracyInfo.className = 'text-info';
     });
 
-    let watchId = null;
-    let bestPosition = null;
-
-    // Get current location with high accuracy
+    // Get current location - GPS only, single reading
     function getCurrentLocation() {
         const statusDiv = document.getElementById('locationStatus');
         const locationBtn = document.getElementById('locationBtn');
@@ -257,7 +243,7 @@
         
         statusDiv.classList.remove('d-none');
         statusDiv.className = 'alert alert-info';
-        statusDiv.innerHTML = '<strong>Getting your location...</strong><br><small>Please ensure GPS is enabled on your device. If you\'re indoors, try going near a window or outside for better GPS signal. This may take up to 30 seconds.</small>';
+        statusDiv.textContent = 'Getting GPS location...';
         locationBtn.disabled = true;
         improveBtn.style.display = 'none';
         accuracyInfo.textContent = '';
@@ -269,83 +255,12 @@
             return;
         }
 
-        // Clear any existing watch
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-
-        // Use watchPosition for better accuracy - it continues to refine the position
-        let positionCount = 0;
-        watchId = navigator.geolocation.watchPosition(
+        // Use getCurrentPosition - single GPS reading
+        navigator.geolocation.getCurrentPosition(
             (position) => {
-                positionCount++;
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 const accuracy = position.coords.accuracy; // Accuracy in meters
-                
-                // Check if location seems reasonable (within ~50km of Maseno area) - calculate first
-                // Maseno area: -0.0627, 34.6061
-                const masenoLat = -0.0627;
-                const masenoLng = 34.6061;
-                const distanceFromMaseno = calculateDistance(lat, lng, masenoLat, masenoLng);
-                const isNearMaseno = distanceFromMaseno < 50000; // Within 50km
-                
-                // Detect location source (if available)
-                // Note: altitude and altitudeAccuracy are only available with GPS
-                const hasGPS = position.coords.altitude !== null && position.coords.altitudeAccuracy !== null;
-                const locationSource = hasGPS ? 'GPS' : (accuracy < 100 ? 'GPS (likely)' : 'Network/WiFi (inaccurate)');
-                
-                // Reject network-based locations if accuracy is too poor (>1000m typically means network-based)
-                if (accuracy > 1000 && !isNearMaseno) {
-                    if (positionCount < 3) {
-                        // Wait for more readings before rejecting
-                        statusDiv.className = 'alert alert-info';
-                        statusDiv.textContent = `Getting location... (Reading ${positionCount}) - Waiting for GPS signal...`;
-                        return; // Don't update yet, wait for better accuracy
-                    } else {
-                        // After 3 readings, if still inaccurate, warn user
-                        statusDiv.className = 'alert alert-danger';
-                        statusDiv.innerHTML = `⚠️ <strong>Inaccurate Location Detected!</strong><br>
-                            The location appears to be using network/WiFi (not GPS), which can be very inaccurate.<br>
-                            <strong>Location detected:</strong> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
-                            <strong>Accuracy:</strong> ±${Math.round(accuracy)} meters (very poor - likely network-based)<br><br>
-                            <strong>Please try:</strong><br>
-                            1. Enable GPS on your device<br>
-                            2. Go outside or near a window for better GPS signal<br>
-                            3. Use "Find Maseno University" button instead<br>
-                            4. Or search for your exact location using the search box above`;
-                        accuracyInfo.textContent = `⚠️ Network-based location detected (not GPS) - Very inaccurate!`;
-                        accuracyInfo.className = 'text-danger';
-                        locationBtn.disabled = false;
-                        improveBtn.style.display = 'inline-block';
-                        // Don't update coordinates if location is clearly wrong
-                        return;
-                    }
-                }
-                
-                // Store the best (most accurate) position
-                if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
-                    bestPosition = position;
-                }
-
-                // If location is very far from Maseno and accuracy is poor, it's likely wrong
-                if (distanceFromMaseno > 100000 && accuracy > 500) { // More than 100km away and poor accuracy
-                    statusDiv.className = 'alert alert-danger';
-                    statusDiv.innerHTML = `⚠️ <strong>Location seems incorrect!</strong><br>
-                        Detected location is ${Math.round(distanceFromMaseno/1000)}km from Maseno University.<br>
-                        Accuracy: ±${Math.round(accuracy)} meters (likely using network, not GPS)<br><br>
-                        <strong>This location is probably wrong. Please:</strong><br>
-                        1. Enable GPS on your device and try again<br>
-                        2. Click "Find Maseno University" to set the correct location<br>
-                        3. Or search for your exact lecture hall location`;
-                    accuracyInfo.textContent = `⚠️ Location appears incorrect - ${Math.round(distanceFromMaseno/1000)}km from Maseno`;
-                    accuracyInfo.className = 'text-danger';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                    // Don't update coordinates if location is clearly wrong
-                    return;
-                }
 
                 // Update map and marker
                 map.flyTo({
@@ -356,53 +271,12 @@
                 marker.setLngLat([lng, lat]);
                 updateCoordinates(lng, lat);
 
-                // Show accuracy information with location validation
-                let locationWarning = '';
-                let sourceInfo = ` (${locationSource})`;
-                if (!isNearMaseno) {
-                    locationWarning = ` ⚠️ Warning: Detected location is ${Math.round(distanceFromMaseno/1000)}km from Maseno.`;
-                }
-                
-                if (accuracy > 500) {
-                    sourceInfo = ' (Network-based - may be inaccurate)';
-                }
-
-                if (accuracy < 10) {
-                    statusDiv.className = isNearMaseno ? 'alert alert-success' : 'alert alert-warning';
-                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Excellent)${sourceInfo}${locationWarning}`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${sourceInfo}${!isNearMaseno ? ' - Location may be incorrect!' : ''}`;
-                    accuracyInfo.className = isNearMaseno ? 'text-success' : 'text-warning';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'none';
-                    // Stop watching once we have good accuracy
-                    if (watchId !== null) {
-                        navigator.geolocation.clearWatch(watchId);
-                        watchId = null;
-                    }
-                } else if (accuracy < 50) {
-                    statusDiv.className = isNearMaseno ? 'alert alert-info' : 'alert alert-warning';
-                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Good)${sourceInfo}${locationWarning}`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${sourceInfo}${!isNearMaseno ? ' - Location may be incorrect!' : ' - You can improve this by clicking "Improve Accuracy"'}`;
-                    accuracyInfo.className = isNearMaseno ? 'text-info' : 'text-warning';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                } else if (accuracy < 200) {
-                    statusDiv.className = isNearMaseno ? 'alert alert-warning' : 'alert alert-danger';
-                    statusDiv.textContent = `Location found. Accuracy: ±${Math.round(accuracy)} meters (Fair)${sourceInfo}${locationWarning}`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${sourceInfo}${!isNearMaseno ? ' - Location may be incorrect!' : ' - Click "Improve Accuracy" for better results'}`;
-                    accuracyInfo.className = 'text-warning';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                } else {
-                    // Poor accuracy - likely network-based
-                    statusDiv.className = isNearMaseno ? 'alert alert-warning' : 'alert alert-danger';
-                    statusDiv.innerHTML = `Location found but accuracy is poor: ±${Math.round(accuracy)} meters${sourceInfo}${locationWarning}<br>
-                        <small>This may be using network/WiFi location instead of GPS. For better accuracy, enable GPS on your device and try "Improve Accuracy".</small>`;
-                    accuracyInfo.textContent = `⚠️ Poor accuracy: ±${Math.round(accuracy)} meters - Likely network-based, not GPS`;
-                    accuracyInfo.className = 'text-warning';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                }
+                // Show accuracy information
+                statusDiv.className = 'alert alert-success';
+                statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters`;
+                accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
+                accuracyInfo.className = 'text-success';
+                locationBtn.disabled = false;
             },
             (error) => {
                 locationBtn.disabled = false;
@@ -414,7 +288,7 @@
                         errorMsg = 'Location access denied. Please allow location access in your browser settings and try again.';
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        errorMsg = 'Location information unavailable. Please check your GPS/WiFi settings.';
+                        errorMsg = 'Location information unavailable. Please check your GPS settings.';
                         break;
                     case error.TIMEOUT:
                         errorMsg = 'Location request timed out. Please try again or use the search box.';
@@ -425,47 +299,17 @@
                 }
                 statusDiv.textContent = errorMsg;
                 accuracyInfo.textContent = '';
-                
-                if (watchId !== null) {
-                    navigator.geolocation.clearWatch(watchId);
-                    watchId = null;
-                }
             },
             {
-                enableHighAccuracy: true,  // Force GPS if available (not IP/WiFi-based)
-                timeout: 30000,            // 30 second timeout for better GPS lock
-                maximumAge: 0              // Don't use cached position - get fresh one
+                enableHighAccuracy: true,  // Force GPS only
+                timeout: 30000,            // 30 second timeout
+                maximumAge: 0              // Don't use cached position - get fresh GPS reading
             }
         );
-
-        // Fallback timeout - stop watching after 30 seconds
-        setTimeout(() => {
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-                if (bestPosition) {
-                    const lat = bestPosition.coords.latitude;
-                    const lng = bestPosition.coords.longitude;
-                    const accuracy = bestPosition.coords.accuracy;
-                    
-                    statusDiv.className = 'alert alert-info';
-                    statusDiv.textContent = `Using best available location. Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.className = 'text-info';
-                    locationBtn.disabled = false;
-                    improveBtn.style.display = 'inline-block';
-                } else {
-                    statusDiv.className = 'alert alert-warning';
-                    statusDiv.textContent = 'Location request timed out. Please try again or use the search box to find your location.';
-                    locationBtn.disabled = false;
-                }
-            }
-        }, 30000);
     }
 
     // Improve location accuracy by getting a fresh reading
     function improveLocationAccuracy() {
-        bestPosition = null; // Reset best position
         getCurrentLocation();
     }
 
@@ -577,12 +421,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         // Set default coordinates to Maseno University
         updateCoordinates(defaultLng, defaultLat);
-        
-        // Show helpful message
-        const statusDiv = document.getElementById('locationStatus');
-        statusDiv.classList.remove('d-none');
-        statusDiv.className = 'alert alert-info';
-        statusDiv.innerHTML = '<strong>Location Setup:</strong> Click "Use My Current Location" for GPS, search for "Maseno University" in the search box above, or click directly on the map to set your exact location.';
     });
 </script>
 {% endblock %}
