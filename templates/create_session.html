@@ -94,14 +94,20 @@
                 </div>
 
                 <div class="mt-2 text-center">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="getCurrentLocation()">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="getCurrentLocation()" id="locationBtn">
                         <i class="bi bi-geo-alt"></i> Use My Current Location
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="improveLocationAccuracy()" id="improveBtn" style="display: none;">
+                        <i class="bi bi-arrow-clockwise"></i> Improve Accuracy
                     </button>
                 </div>
                 <div class="mt-2">
+                    <small class="text-muted" id="accuracyInfo"></small>
+                </div>
+                <div class="mt-2">
                     <small class="text-muted">
-                        <i class="bi bi-info-circle"></i> Drag the blue marker to adjust the exact location of the
-                        lecture hall.
+                        <i class="bi bi-info-circle"></i> <strong>Ways to set location:</strong> 1) Click "Use My Current Location" for GPS, 
+                        2) Search for your location using the search box, 3) Click directly on the map, or 4) Drag the blue marker to fine-tune.
                     </small>
                 </div>
             </div>
@@ -196,44 +202,183 @@
 
     marker.on('dragend', onDragEnd);
 
+    // Update marker when clicking on map
+    map.on('click', (e) => {
+        const coords = e.lngLat;
+        marker.setLngLat(coords);
+        updateCoordinates(coords.lng, coords.lat);
+        
+        // Update status
+        const statusDiv = document.getElementById('locationStatus');
+        statusDiv.classList.remove('d-none');
+        statusDiv.className = 'alert alert-success';
+        statusDiv.textContent = `Location set by clicking on map: ${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`;
+        
+        const accuracyInfo = document.getElementById('accuracyInfo');
+        accuracyInfo.textContent = 'Location set manually by clicking on the map';
+        accuracyInfo.className = 'text-info';
+    });
+
     // Update marker when searching
     geocoder.on('result', (e) => {
         const coords = e.result.center;
         marker.setLngLat(coords);
         updateCoordinates(coords[0], coords[1]);
-    });
-
-    // Get current location
-    function getCurrentLocation() {
+        
+        // Update status
         const statusDiv = document.getElementById('locationStatus');
         statusDiv.classList.remove('d-none');
-        statusDiv.textContent = 'Getting location...';
+        statusDiv.className = 'alert alert-success';
+        statusDiv.textContent = `Location found: ${e.result.place_name}`;
+        
+        const accuracyInfo = document.getElementById('accuracyInfo');
+        accuracyInfo.textContent = 'Location set by search';
+        accuracyInfo.className = 'text-info';
+    });
+
+    let watchId = null;
+    let bestPosition = null;
+
+    // Get current location with high accuracy
+    function getCurrentLocation() {
+        const statusDiv = document.getElementById('locationStatus');
+        const locationBtn = document.getElementById('locationBtn');
+        const improveBtn = document.getElementById('improveBtn');
+        const accuracyInfo = document.getElementById('accuracyInfo');
+        
+        statusDiv.classList.remove('d-none');
+        statusDiv.className = 'alert alert-info';
+        statusDiv.textContent = 'Getting your location... Please wait.';
+        locationBtn.disabled = true;
+        improveBtn.style.display = 'none';
+        accuracyInfo.textContent = '';
 
         if (!navigator.geolocation) {
-            statusDiv.textContent = 'Geolocation is not supported by your browser.';
+            statusDiv.className = 'alert alert-warning';
+            statusDiv.textContent = 'Geolocation is not supported by your browser. Please use the search box or drag the marker.';
+            locationBtn.disabled = false;
             return;
         }
 
-        navigator.geolocation.getCurrentPosition(
+        // Clear any existing watch
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        // Use watchPosition for better accuracy - it continues to refine the position
+        watchId = navigator.geolocation.watchPosition(
             (position) => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy; // Accuracy in meters
+                
+                // Store the best (most accurate) position
+                if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) {
+                    bestPosition = position;
+                }
 
+                // Update map and marker
                 map.flyTo({
                     center: [lng, lat],
-                    zoom: 17
+                    zoom: Math.max(17, Math.min(20, 18 - Math.log10(accuracy))) // Zoom based on accuracy
                 });
 
                 marker.setLngLat([lng, lat]);
                 updateCoordinates(lng, lat);
 
-                statusDiv.classList.add('d-none');
+                // Show accuracy information
+                if (accuracy < 10) {
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Excellent)`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.className = 'text-success';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'none';
+                    // Stop watching once we have good accuracy
+                    if (watchId !== null) {
+                        navigator.geolocation.clearWatch(watchId);
+                        watchId = null;
+                    }
+                } else if (accuracy < 50) {
+                    statusDiv.className = 'alert alert-info';
+                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Good)`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters - You can improve this by clicking "Improve Accuracy"`;
+                    accuracyInfo.className = 'text-info';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'inline-block';
+                } else {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.textContent = `Location found. Accuracy: ±${Math.round(accuracy)} meters (Fair - may need improvement)`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters - Click "Improve Accuracy" for better results`;
+                    accuracyInfo.className = 'text-warning';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'inline-block';
+                }
             },
             (error) => {
-                statusDiv.textContent = 'Error getting location: ' + error.message;
+                locationBtn.disabled = false;
+                statusDiv.className = 'alert alert-danger';
+                
+                let errorMsg = 'Error getting location: ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg = 'Location access denied. Please allow location access in your browser settings and try again.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg = 'Location information unavailable. Please check your GPS/WiFi settings.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg = 'Location request timed out. Please try again or use the search box.';
+                        break;
+                    default:
+                        errorMsg += error.message;
+                        break;
+                }
+                statusDiv.textContent = errorMsg;
+                accuracyInfo.textContent = '';
+                
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
             },
-            { enableHighAccuracy: true }
+            {
+                enableHighAccuracy: true,  // Use GPS if available
+                timeout: 15000,            // 15 second timeout
+                maximumAge: 0              // Don't use cached position - get fresh one
+            }
         );
+
+        // Fallback timeout - stop watching after 20 seconds
+        setTimeout(() => {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                if (bestPosition) {
+                    const lat = bestPosition.coords.latitude;
+                    const lng = bestPosition.coords.longitude;
+                    const accuracy = bestPosition.coords.accuracy;
+                    
+                    statusDiv.className = 'alert alert-info';
+                    statusDiv.textContent = `Using best available location. Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
+                    accuracyInfo.className = 'text-info';
+                    locationBtn.disabled = false;
+                    improveBtn.style.display = 'inline-block';
+                } else {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.textContent = 'Location request timed out. Please try again or use the search box to find your location.';
+                    locationBtn.disabled = false;
+                }
+            }
+        }, 20000);
+    }
+
+    // Improve location accuracy by getting a fresh reading
+    function improveLocationAccuracy() {
+        bestPosition = null; // Reset best position
+        getCurrentLocation();
     }
 
     // Helper to generate circle GeoJSON
@@ -283,9 +428,17 @@
         document.getElementById('qr_expiry_minutes').value = minutes;
     }
 
-    // Initialize on load
+    // Initialize coordinates with default values (don't auto-get location)
     document.addEventListener('DOMContentLoaded', () => {
-        getCurrentLocation();
+        // Set default coordinates but don't automatically get location
+        // User must click the button to get their location
+        updateCoordinates(defaultLng, defaultLat);
+        
+        // Show helpful message
+        const statusDiv = document.getElementById('locationStatus');
+        statusDiv.classList.remove('d-none');
+        statusDiv.className = 'alert alert-info';
+        statusDiv.textContent = 'Click "Use My Current Location" to get your GPS coordinates, or search for your location using the search box above.';
     });
 </script>
 {% endblock %}
