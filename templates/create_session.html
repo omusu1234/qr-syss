@@ -100,6 +100,9 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="improveLocationAccuracy()" id="improveBtn" style="display: none;">
                         <i class="bi bi-arrow-clockwise"></i> Improve Accuracy
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="searchMaseno()" id="masenoBtn">
+                        <i class="bi bi-search"></i> Find Maseno University
+                    </button>
                 </div>
                 <div class="mt-2">
                     <small class="text-muted" id="accuracyInfo"></small>
@@ -134,9 +137,10 @@
 <script>
     mapboxgl.accessToken = '{{ mapbox_access_token }}';
 
-    // Default to Nairobi if no location found
-    const defaultLat = -1.2921;
-    const defaultLng = 36.8219;
+    // Default to Maseno University if no location found
+    // Maseno University coordinates: -0.0627, 34.6061
+    const defaultLat = -0.0627;
+    const defaultLng = 34.6061;
 
     const map = new mapboxgl.Map({
         container: 'map',
@@ -278,6 +282,13 @@
                     bestPosition = position;
                 }
 
+                // Check if location seems reasonable (within ~50km of Maseno area)
+                // Maseno area: -0.0627, 34.6061
+                const masenoLat = -0.0627;
+                const masenoLng = 34.6061;
+                const distanceFromMaseno = calculateDistance(lat, lng, masenoLat, masenoLng);
+                const isNearMaseno = distanceFromMaseno < 50000; // Within 50km
+
                 // Update map and marker
                 map.flyTo({
                     center: [lng, lat],
@@ -287,12 +298,17 @@
                 marker.setLngLat([lng, lat]);
                 updateCoordinates(lng, lat);
 
-                // Show accuracy information
+                // Show accuracy information with location validation
+                let locationWarning = '';
+                if (!isNearMaseno) {
+                    locationWarning = ` ⚠️ Warning: Detected location is ${Math.round(distanceFromMaseno/1000)}km from Maseno. Please verify this is correct or use the search box to find Maseno University.`;
+                }
+
                 if (accuracy < 10) {
-                    statusDiv.className = 'alert alert-success';
-                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Excellent)`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters`;
-                    accuracyInfo.className = 'text-success';
+                    statusDiv.className = isNearMaseno ? 'alert alert-success' : 'alert alert-warning';
+                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Excellent)${locationWarning}`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${!isNearMaseno ? ' - Location may be incorrect!' : ''}`;
+                    accuracyInfo.className = isNearMaseno ? 'text-success' : 'text-warning';
                     locationBtn.disabled = false;
                     improveBtn.style.display = 'none';
                     // Stop watching once we have good accuracy
@@ -301,16 +317,16 @@
                         watchId = null;
                     }
                 } else if (accuracy < 50) {
-                    statusDiv.className = 'alert alert-info';
-                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Good)`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters - You can improve this by clicking "Improve Accuracy"`;
-                    accuracyInfo.className = 'text-info';
+                    statusDiv.className = isNearMaseno ? 'alert alert-info' : 'alert alert-warning';
+                    statusDiv.textContent = `Location found! Accuracy: ±${Math.round(accuracy)} meters (Good)${locationWarning}`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${!isNearMaseno ? ' - Location may be incorrect!' : ' - You can improve this by clicking "Improve Accuracy"'}`;
+                    accuracyInfo.className = isNearMaseno ? 'text-info' : 'text-warning';
                     locationBtn.disabled = false;
                     improveBtn.style.display = 'inline-block';
                 } else {
-                    statusDiv.className = 'alert alert-warning';
-                    statusDiv.textContent = `Location found. Accuracy: ±${Math.round(accuracy)} meters (Fair - may need improvement)`;
-                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters - Click "Improve Accuracy" for better results`;
+                    statusDiv.className = isNearMaseno ? 'alert alert-warning' : 'alert alert-danger';
+                    statusDiv.textContent = `Location found. Accuracy: ±${Math.round(accuracy)} meters (Fair - may need improvement)${locationWarning}`;
+                    accuracyInfo.textContent = `GPS Accuracy: ±${Math.round(accuracy)} meters${!isNearMaseno ? ' - Location may be incorrect!' : ' - Click "Improve Accuracy" for better results'}`;
                     accuracyInfo.className = 'text-warning';
                     locationBtn.disabled = false;
                     improveBtn.style.display = 'inline-block';
@@ -344,8 +360,8 @@
                 }
             },
             {
-                enableHighAccuracy: true,  // Use GPS if available
-                timeout: 15000,            // 15 second timeout
+                enableHighAccuracy: true,  // Use GPS if available (not IP/WiFi-based)
+                timeout: 20000,            // 20 second timeout for better GPS lock
                 maximumAge: 0              // Don't use cached position - get fresh one
             }
         );
@@ -379,6 +395,63 @@
     function improveLocationAccuracy() {
         bestPosition = null; // Reset best position
         getCurrentLocation();
+    }
+
+    // Search for Maseno University location
+    function searchMaseno() {
+        const statusDiv = document.getElementById('locationStatus');
+        statusDiv.classList.remove('d-none');
+        statusDiv.className = 'alert alert-info';
+        statusDiv.textContent = 'Searching for Maseno University...';
+        
+        // Use Mapbox Geocoding API to search for Maseno University
+        const query = 'Maseno University, Kenya';
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.features && data.features.length > 0) {
+                    const coords = data.features[0].center;
+                    const placeName = data.features[0].place_name;
+                    
+                    map.flyTo({
+                        center: coords,
+                        zoom: 17
+                    });
+                    
+                    marker.setLngLat(coords);
+                    updateCoordinates(coords[0], coords[1]);
+                    
+                    statusDiv.className = 'alert alert-success';
+                    statusDiv.textContent = `Found: ${placeName}`;
+                    
+                    const accuracyInfo = document.getElementById('accuracyInfo');
+                    accuracyInfo.textContent = 'Location set by searching for Maseno University';
+                    accuracyInfo.className = 'text-success';
+                } else {
+                    statusDiv.className = 'alert alert-warning';
+                    statusDiv.textContent = 'Could not find Maseno University. Please use the search box above to search manually.';
+                }
+            })
+            .catch(error => {
+                statusDiv.className = 'alert alert-danger';
+                statusDiv.textContent = 'Error searching for Maseno University. Please use the search box above.';
+                console.error('Error:', error);
+            });
+    }
+
+    // Calculate distance between two coordinates in meters (Haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Earth's radius in meters
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
     }
 
     // Helper to generate circle GeoJSON
@@ -430,15 +503,14 @@
 
     // Initialize coordinates with default values (don't auto-get location)
     document.addEventListener('DOMContentLoaded', () => {
-        // Set default coordinates but don't automatically get location
-        // User must click the button to get their location
+        // Set default coordinates to Maseno University
         updateCoordinates(defaultLng, defaultLat);
         
         // Show helpful message
         const statusDiv = document.getElementById('locationStatus');
         statusDiv.classList.remove('d-none');
         statusDiv.className = 'alert alert-info';
-        statusDiv.textContent = 'Click "Use My Current Location" to get your GPS coordinates, or search for your location using the search box above.';
+        statusDiv.innerHTML = '<strong>Location Setup:</strong> Click "Use My Current Location" for GPS, search for "Maseno University" in the search box above, or click directly on the map to set your exact location.';
     });
 </script>
 {% endblock %}
