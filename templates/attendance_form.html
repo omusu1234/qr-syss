@@ -129,14 +129,14 @@
                 statusDiv.className = 'alert alert-success';
                 statusDiv.innerHTML = `
                     <span class="status-indicator status-success"></span>
-                    <strong>Location Verified!</strong> You are within range (${distance.toFixed(0)}m away).
+                    <strong>Location Verified!</strong> You are within range.
                 `;
                 submitBtn.disabled = false;
             } else {
                 statusDiv.className = 'alert alert-danger';
                 statusDiv.innerHTML = `
                     <span class="status-indicator status-error"></span>
-                    <strong>Too Far!</strong> You are ${distance.toFixed(0)}m away (Max: ${locationRadius}m). Move closer.
+                    <strong>Out of Range!</strong> You are too far from the lecture hall.
                 `;
                 submitBtn.disabled = true;
             }
