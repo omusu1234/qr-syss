@@ -161,6 +161,12 @@
         pointer-events: none;
     }
 
+    /* Password Toggle - Enable pointer events */
+    .input-icon.password-toggle {
+        pointer-events: auto;
+        z-index: 10;
+    }
+
     .form-group.has-icon .form-control {
         padding-right: 50px;
     }
@@ -235,6 +241,8 @@
     .password-toggle {
         cursor: pointer;
         transition: color 0.3s ease;
+        pointer-events: auto !important;
+        z-index: 10;
     }
 
     .password-toggle:hover {
@@ -295,7 +303,7 @@
                 </label>
                 <input type="password" class="form-control" id="password" name="password" 
                        placeholder="Enter your password" required autocomplete="current-password">
-                <span class="input-icon password-toggle" id="passwordToggle" style="cursor: pointer; z-index: 10;">
+                <span class="input-icon password-toggle" id="passwordToggle">
                     <i class="bi bi-eye" id="passwordToggleIcon"></i>
                 </span>
             </div>
@@ -325,12 +333,28 @@
             const passwordToggle = document.getElementById('passwordToggle');
             const passwordToggleIcon = document.getElementById('passwordToggleIcon');
             
-            if (passwordToggle && passwordInput) {
+            if (passwordToggle && passwordInput && passwordToggleIcon) {
+                // Use mousedown and touchstart for better mobile support
+                passwordToggle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    togglePassword();
+                });
+                
+                passwordToggle.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    togglePassword();
+                });
+                
+                // Also support click as fallback
                 passwordToggle.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    
-                    // Toggle password visibility
+                    togglePassword();
+                });
+                
+                function togglePassword() {
                     if (passwordInput.type === 'password') {
                         passwordInput.type = 'text';
                         passwordToggleIcon.classList.remove('bi-eye');
@@ -340,7 +364,7 @@
                         passwordToggleIcon.classList.remove('bi-eye-slash');
                         passwordToggleIcon.classList.add('bi-eye');
                     }
-                });
+                }
             }
         });
     </script>
