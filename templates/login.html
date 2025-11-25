@@ -332,29 +332,20 @@
             const passwordInput = document.getElementById('password');
             const passwordToggle = document.getElementById('passwordToggle');
             const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+            let isToggling = false; // Prevent multiple rapid toggles
             
             if (passwordToggle && passwordInput && passwordToggleIcon) {
-                // Use mousedown and touchstart for better mobile support
-                passwordToggle.addEventListener('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    togglePassword();
-                });
-                
-                passwordToggle.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    togglePassword();
-                });
-                
-                // Also support click as fallback
-                passwordToggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    togglePassword();
-                });
-                
-                function togglePassword() {
+                function togglePassword(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    
+                    // Prevent rapid toggling
+                    if (isToggling) return;
+                    isToggling = true;
+                    
+                    // Toggle password visibility
                     if (passwordInput.type === 'password') {
                         passwordInput.type = 'text';
                         passwordToggleIcon.classList.remove('bi-eye');
@@ -364,7 +355,24 @@
                         passwordToggleIcon.classList.remove('bi-eye-slash');
                         passwordToggleIcon.classList.add('bi-eye');
                     }
+                    
+                    // Reset flag after a short delay
+                    setTimeout(function() {
+                        isToggling = false;
+                    }, 300);
                 }
+                
+                // Use click event only (works for both mouse and touch)
+                passwordToggle.addEventListener('click', togglePassword, { passive: false });
+                
+                // Prevent form submission when clicking the toggle
+                passwordToggle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                });
+                
+                passwordToggle.addEventListener('touchstart', function(e) {
+                    e.preventDefault();
+                });
             }
         });
     </script>
