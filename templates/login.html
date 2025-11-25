@@ -230,6 +230,20 @@
     .login-wrapper .text-center {
         z-index: 999;
     }
+
+    /* Password Toggle Icon */
+    .password-toggle {
+        cursor: pointer;
+        transition: color 0.3s ease;
+    }
+
+    .password-toggle:hover {
+        color: #0066cc !important;
+    }
+
+    .password-toggle:active {
+        transform: translateY(-50%) scale(0.95);
+    }
 </style>
 {% endblock %}
 
@@ -281,7 +295,9 @@
                 </label>
                 <input type="password" class="form-control" id="password" name="password" 
                        placeholder="Enter your password" required autocomplete="current-password">
-                <span class="input-icon"><i class="bi bi-lock"></i></span>
+                <span class="input-icon password-toggle" id="passwordToggle" style="cursor: pointer; z-index: 10;">
+                    <i class="bi bi-eye" id="passwordToggleIcon"></i>
+                </span>
             </div>
 
             <div class="form-group">
@@ -301,6 +317,33 @@
         </form>
     </div>
     </div>
+    
+    <script>
+        // Password toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('password');
+            const passwordToggle = document.getElementById('passwordToggle');
+            const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+            
+            if (passwordToggle && passwordInput) {
+                passwordToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Toggle password visibility
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        passwordToggleIcon.classList.remove('bi-eye');
+                        passwordToggleIcon.classList.add('bi-eye-slash');
+                    } else {
+                        passwordInput.type = 'password';
+                        passwordToggleIcon.classList.remove('bi-eye-slash');
+                        passwordToggleIcon.classList.add('bi-eye');
+                    }
+                });
+            }
+        });
+    </script>
     <div class="text-center mt-4" style="color: #003366; font-size: 0.9rem; position: absolute; bottom: 20px; width: 100%; left: 0;">
         <p class="mb-1"> 2025 Maseno University. All rights reserved.</p>
         <p class="mb-0">Powered by <strong>DSSMU Tech Team</strong></p>
