@@ -90,19 +90,11 @@ def get_base_url():
     return f"http://{local_ip}:{port}"
 
 def get_client_ip():
-    """Get client IP address, handling proxy headers and Vercel"""
-    # Try Vercel-specific header first
-    if request.headers.get('x-forwarded-for'):
-        ip = request.headers.get('x-forwarded-for').split(',')[0].strip()
-    elif request.headers.get('X-Forwarded-For'):
+    """Get client IP address, handling proxy headers"""
+    ip = request.remote_addr
+    if request.headers.get('X-Forwarded-For'):
         ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
-    elif request.headers.get('x-real-ip'):
-        ip = request.headers.get('x-real-ip').strip()
-    else:
-        ip = request.remote_addr or 'unknown'
-    
-    # Ensure we always return a string, never None
-    return ip if ip else 'unknown'
+    return ip
 
 def log_activity(action, entity_type=None, entity_id=None, description=None, user_id=None):
     """Log user activity to audit trail"""
@@ -759,32 +751,27 @@ def submit_attendance():
         return jsonify({'success': False, 'message': 'You have already submitted attendance for this session'}), 400
     
     # Get client IP address
-    try:
-        client_ip = get_client_ip()
-    except Exception as e:
-        app.logger.warning(f"Error getting client IP: {str(e)}")
-        client_ip = 'unknown'
+    client_ip = request.remote_addr
+    # Handle proxy headers (X-Forwarded-For)
+    if request.headers.get('X-Forwarded-For'):
+        client_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
     
-    # Device-based rate limiting: Check if this IP/device has already submitted for this session
-    # This prevents multiple people from using the same device for the same session
-    # Only check if we have a valid IP (not 'unknown')
-    if client_ip and client_ip != 'unknown':
-        try:
-            existing_device_submission = Attendance.query.filter_by(
-                session_id=session_obj.id,
-                ip_address=client_ip
-            ).first()
-            
-            if existing_device_submission:
-                return jsonify({
-                    'success': False, 
-                    'message': 'This device has already been used to submit attendance for this session. Each device can only be used once per session.'
-                }), 429  # 429 Too Many Requests
-        except Exception as e:
-            # Log the error but don't block submission if IP check fails
-            app.logger.error(f"Error checking device submission: {str(e)}", exc_info=True)
-            # Continue with submission if IP check fails (fail open for availability)
-            # This ensures the system remains available even if IP checking has issues
+    # Rate limiting: Check how many submissions from this IP in the time window
+    time_window_start = datetime.utcnow() - timedelta(minutes=app.config['SUBMISSION_TIME_WINDOW_MINUTES'])
+    
+    recent_submissions = Attendance.query.filter(
+        Attendance.session_id == session_obj.id,
+        Attendance.ip_address == client_ip,
+        Attendance.submitted_at >= time_window_start
+    ).count()
+    
+    max_submissions = app.config['MAX_SUBMISSIONS_PER_IP']
+    
+    if recent_submissions >= max_submissions:
+        return jsonify({
+            'success': False, 
+            'message': f'Too many submissions from this device. Maximum {max_submissions} submission(s) allowed per {app.config["SUBMISSION_TIME_WINDOW_MINUTES"]} minutes. Please wait before submitting again.'
+        }), 429  # 429 Too Many Requests
     
     # Additional check: Verify the admission number doesn't already exist for this session
     # (Double-check even though we already checked above)
