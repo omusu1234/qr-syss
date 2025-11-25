@@ -103,58 +103,147 @@
         const locationRadius = {{ session.location_radius or 100 }};
         
         let watchId = null;
-        let bestPosition = null;
+        let positionReadings = []; // Array to store all readings
         let positionCount = 0;
         let gpsFinalized = false;
+        let startTime = null;
+        let lastAccuracyImprovement = null;
+        let stabilityCheckInterval = null;
+        
+        // Statistical filtering functions
+        function calculateMedian(values) {
+            const sorted = [...values].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+        
+        function calculateWeightedAverage(positions) {
+            let totalWeight = 0;
+            let weightedLat = 0;
+            let weightedLng = 0;
+            
+            positions.forEach(pos => {
+                const weight = 1 / (pos.coords.accuracy || 1); // Inverse of accuracy as weight
+                weightedLat += pos.coords.latitude * weight;
+                weightedLng += pos.coords.longitude * weight;
+                totalWeight += weight;
+            });
+            
+            return {
+                lat: weightedLat / totalWeight,
+                lng: weightedLng / totalWeight,
+                avgAccuracy: positions.reduce((sum, p) => sum + p.coords.accuracy, 0) / positions.length
+            };
+        }
+        
+        function filterOutliers(positions) {
+            if (positions.length < 5) return positions;
+            
+            // Calculate median position
+            const lats = positions.map(p => p.coords.latitude);
+            const lngs = positions.map(p => p.coords.longitude);
+            const medianLat = calculateMedian(lats);
+            const medianLng = calculateMedian(lngs);
+            
+            // Calculate distances from median
+            const distances = positions.map(pos => {
+                return calculateDistance(medianLat, medianLng, pos.coords.latitude, pos.coords.longitude);
+            });
+            
+            const medianDistance = calculateMedian(distances);
+            const threshold = medianDistance * 2; // Remove points more than 2x median distance
+            
+            // Filter out outliers
+            return positions.filter((pos, idx) => distances[idx] <= threshold);
+        }
+        
+        function processReadings() {
+            if (positionReadings.length < 10) return null;
+            
+            // Filter out network-based readings (accuracy > 100m)
+            let validReadings = positionReadings.filter(p => p.coords.accuracy <= 100);
+            
+            if (validReadings.length < 5) return null;
+            
+            // Filter out outliers
+            validReadings = filterOutliers(validReadings);
+            
+            // Sort by accuracy (best first)
+            validReadings.sort((a, b) => a.coords.accuracy - b.coords.accuracy);
+            
+            // Take best 20 readings (or all if less than 20)
+            const bestReadings = validReadings.slice(0, Math.min(20, validReadings.length));
+            
+            // Calculate weighted average
+            return calculateWeightedAverage(bestReadings);
+        }
         
         function updateCoordinates(lng, lat) {
             currentLongitude = parseFloat(lng.toFixed(6));
             currentLatitude = parseFloat(lat.toFixed(6));
         }
         
-        function finalizeGPS(position) {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-        
-            // Final check: reject if accuracy is still too poor (likely network-based)
-            if (accuracy > 100) {
+        function finalizeGPS(finalPosition) {
+            // Process all readings to get best result
+            const processed = processReadings();
+            
+            let finalLat, finalLng, finalAccuracy;
+            
+            if (processed && processed.avgAccuracy < 50) {
+                // Use processed (averaged) coordinates
+                finalLat = processed.lat;
+                finalLng = processed.lng;
+                finalAccuracy = processed.avgAccuracy;
+            } else if (finalPosition && finalPosition.coords.accuracy <= 100) {
+                // Use best single reading
+                finalLat = finalPosition.coords.latitude;
+                finalLng = finalPosition.coords.longitude;
+                finalAccuracy = finalPosition.coords.accuracy;
+            } else {
+                // Reject - too poor accuracy
                 const statusDiv = document.getElementById('locationStatus');
                 const submitBtn = document.getElementById('submitBtn');
                 statusDiv.className = 'alert alert-danger';
                 statusDiv.innerHTML = `<span class="status-indicator status-error"></span>
                     <strong>Location rejected</strong><br>
-                    <small>Accuracy too poor (${Math.round(accuracy)}m). This appears to be network-based location. 
-                    Please enable GPS and try again.</small>`;
+                    <small>Accuracy too poor (${finalPosition ? Math.round(finalPosition.coords.accuracy) : 'N/A'}m). 
+                    This appears to be network-based location. Please enable GPS and try again.</small>`;
                 submitBtn.disabled = true;
                 currentLatitude = null;
                 currentLongitude = null;
                 return;
             }
-        
-            updateCoordinates(lng, lat);
+            
+            updateCoordinates(finalLng, finalLat);
             gpsFinalized = true;
-        
+            
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            if (stabilityCheckInterval !== null) clearInterval(stabilityCheckInterval);
+            
             const statusDiv = document.getElementById('locationStatus');
             const submitBtn = document.getElementById('submitBtn');
-        
-            const distance = calculateDistance(lectureLat, lectureLng, lat, lng);
-        
+            
+            const distance = calculateDistance(lectureLat, lectureLng, finalLat, finalLng);
+            
             let accuracyBadge = '';
-            if (accuracy <= 20) {
+            if (finalAccuracy <= 10) {
                 accuracyBadge = '<span class="badge bg-success ms-2">Excellent GPS</span>';
-            } else if (accuracy <= 50) {
+            } else if (finalAccuracy <= 20) {
+                accuracyBadge = '<span class="badge bg-success ms-2">Very Good GPS</span>';
+            } else if (finalAccuracy <= 50) {
                 accuracyBadge = '<span class="badge bg-info ms-2">Good GPS</span>';
             } else {
                 accuracyBadge = '<span class="badge bg-warning ms-2">Moderate GPS</span>';
             }
-        
+            
+            const readingsInfo = processed ? ` (from ${positionReadings.length} readings, averaged)` : '';
+            
             if (distance <= locationRadius) {
                 statusDiv.className = 'alert alert-success';
                 statusDiv.innerHTML = `
                     <span class="status-indicator status-success"></span>
                     <strong>Location Verified!</strong> You are within range.${accuracyBadge}<br>
-                    <small>GPS Accuracy: ±${Math.round(accuracy)}m | Distance: ${Math.round(distance)}m</small>
+                    <small>GPS Accuracy: ±${Math.round(finalAccuracy)}m${readingsInfo} | Distance: ${Math.round(distance)}m</small>
                 `;
                 submitBtn.disabled = false;
             } else {
@@ -162,12 +251,10 @@
                 statusDiv.innerHTML = `
                     <span class="status-indicator status-error"></span>
                     <strong>Out of Range!</strong> You are too far from the lecture hall.${accuracyBadge}<br>
-                    <small>GPS Accuracy: ±${Math.round(accuracy)}m | Distance: ${Math.round(distance)}m (required: ${locationRadius}m)</small>
+                    <small>GPS Accuracy: ±${Math.round(finalAccuracy)}m${readingsInfo} | Distance: ${Math.round(distance)}m (required: ${locationRadius}m)</small>
                 `;
                 submitBtn.disabled = true;
             }
-        
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         }
         
         function getCurrentLocation() {
@@ -175,12 +262,20 @@
             const submitBtn = document.getElementById('submitBtn');
         
             gpsFinalized = false;
-            bestPosition = null;
+            positionReadings = [];
             positionCount = 0;
-            let minAccuracyReached = false;
+            startTime = Date.now();
+            lastAccuracyImprovement = Date.now();
         
             statusDiv.className = 'alert alert-info';
-            statusDiv.innerHTML = '<span class="status-indicator status-warning"></span> <strong>Getting GPS location...</strong><br><small>Please be patient. This may take 30-60 seconds for accurate GPS signal. Network-based location will be rejected.</small>';
+            statusDiv.innerHTML = `<span class="status-indicator status-warning"></span> 
+                <strong>Getting GPS location...</strong><br>
+                <small>Please be patient. This will take 60-90 seconds for super accurate GPS.<br>
+                <strong>Tips for best accuracy:</strong><br>
+                • Move closer to a window or go outside<br>
+                • Hold device steady<br>
+                • Ensure location services are set to "High Accuracy" mode<br>
+                • Network-based location will be automatically rejected</small>`;
         
             if (!navigator.geolocation) {
                 statusDiv.className = 'alert alert-warning';
@@ -190,6 +285,27 @@
             }
         
             if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            if (stabilityCheckInterval !== null) clearInterval(stabilityCheckInterval);
+        
+            // Stability check - monitor if accuracy is improving
+            stabilityCheckInterval = setInterval(() => {
+                if (gpsFinalized || positionReadings.length < 5) return;
+                
+                const recent = positionReadings.slice(-5);
+                const avgAccuracy = recent.reduce((sum, p) => sum + p.coords.accuracy, 0) / recent.length;
+                const bestAccuracy = Math.min(...recent.map(p => p.coords.accuracy));
+                
+                // Check if accuracy has improved in last 10 seconds
+                const timeSinceImprovement = (Date.now() - lastAccuracyImprovement) / 1000;
+                
+                if (avgAccuracy < 30 && timeSinceImprovement > 10 && positionReadings.length >= 20) {
+                    // Accuracy is good and stable - can finalize
+                    const bestReading = positionReadings.reduce((best, current) => 
+                        current.coords.accuracy < best.coords.accuracy ? current : best
+                    );
+                    finalizeGPS(bestReading);
+                }
+            }, 5000); // Check every 5 seconds
         
             watchId = navigator.geolocation.watchPosition(
                 (position) => {
@@ -202,26 +318,51 @@
                     const altitude = position.coords.altitude;
                     const altitudeAccuracy = position.coords.altitudeAccuracy;
         
-                    // Reject network-based locations (typically have accuracy > 100m)
+                    // Reject network-based locations immediately
                     if (accuracy > 100) {
                         statusDiv.innerHTML = `<span class="status-indicator status-error"></span>
                             <strong>Poor accuracy detected (${Math.round(accuracy)}m)</strong><br>
-                            <small>This appears to be network-based location. Waiting for GPS signal...</small>`;
-                        return; // Don't accept this reading
+                            <small>This appears to be network-based location. Waiting for GPS signal...<br>
+                            Readings collected: ${positionReadings.length} valid GPS readings</small>`;
+                        return;
                     }
         
-                    // Track best position
-                    if (!bestPosition || accuracy < bestPosition.coords.accuracy) {
-                        bestPosition = position;
+                    // Require altitude for GPS validation (network location often lacks it)
+                    if (altitude === null && positionReadings.length > 0) {
+                        // If we have some readings but this one lacks altitude, be suspicious
+                        // But don't reject completely - some GPS might not provide altitude
                     }
         
-                    // Update coordinates for display
-                    updateCoordinates(lng, lat);
+                    // Store reading
+                    positionReadings.push({
+                        coords: {
+                            latitude: lat,
+                            longitude: lng,
+                            accuracy: accuracy,
+                            altitude: altitude,
+                            altitudeAccuracy: altitudeAccuracy
+                        },
+                        timestamp: Date.now()
+                    });
         
-                    // Show progress
+                    // Track accuracy improvement
+                    if (positionReadings.length > 1) {
+                        const prevBest = Math.min(...positionReadings.slice(0, -1).map(p => p.coords.accuracy));
+                        if (accuracy < prevBest) {
+                            lastAccuracyImprovement = Date.now();
+                        }
+                    }
+        
+                    // Update display
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const bestAccuracy = Math.min(...positionReadings.map(p => p.coords.accuracy));
+                    const avgAccuracy = positionReadings.reduce((sum, p) => sum + p.coords.accuracy, 0) / positionReadings.length;
+                    
                     let locationType = 'GPS';
                     if (accuracy > 50) {
                         locationType = 'Refining GPS';
+                    } else if (accuracy <= 20) {
+                        locationType = 'Excellent GPS';
                     }
                     
                     let altitudeInfo = '';
@@ -230,23 +371,17 @@
                     }
         
                     statusDiv.innerHTML = `<span class="status-indicator status-warning"></span>
-                        <strong>${locationType} Reading ${positionCount}...</strong> Accuracy: ±${Math.round(accuracy)}m${altitudeInfo}<br>
-                        <small>Please wait for GPS to lock (target: &lt;50m accuracy). Network location rejected.</small>`;
-        
-                    // Only accept if accuracy is good enough (< 50m indicates real GPS)
-                    if (accuracy < 50) {
-                        minAccuracyReached = true;
-                        // Wait a bit more to ensure GPS is stable, then finalize
-                        setTimeout(() => {
-                            if (!gpsFinalized && bestPosition && bestPosition.coords.accuracy < 50) {
-                                finalizeGPS(bestPosition);
-                            }
-                        }, 2000); // Wait 2 seconds after reaching good accuracy
-                    }
+                        <strong>${locationType} - Reading ${positionCount}</strong><br>
+                        <small>
+                            Current: ±${Math.round(accuracy)}m | Best: ±${Math.round(bestAccuracy)}m | Avg: ±${Math.round(avgAccuracy)}m<br>
+                            Valid readings: ${positionReadings.length} | Time: ${elapsed}s${altitudeInfo}<br>
+                            ${positionReadings.length < 20 ? `Collecting more readings for better accuracy... (target: 20-30 readings)` : 'Accuracy stabilizing...'}
+                        </small>`;
                 },
                 (error) => {
                     gpsFinalized = true;
                     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                    if (stabilityCheckInterval !== null) clearInterval(stabilityCheckInterval);
         
                     statusDiv.className = "alert alert-danger";
                     let msg = "GPS error: " + error.message;
@@ -261,44 +396,57 @@
                     submitBtn.disabled = true;
                 },
                 {
-                    enableHighAccuracy: true,  // Force GPS, not network
-                    maximumAge: 0,             // Don't use cached location
-                    timeout: 60000              // Give GPS 60 seconds to lock
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 90000  // 90 seconds for students
                 }
             );
         
-            // Fallback after 60s - but only accept if accuracy is acceptable
+            // Finalize after 90 seconds or when we have enough good readings
             setTimeout(() => {
                 if (gpsFinalized) return;
                 gpsFinalized = true;
                 if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                if (stabilityCheckInterval !== null) clearInterval(stabilityCheckInterval);
                 
-                if (bestPosition && bestPosition.coords.accuracy <= 50) {
-                    // Good GPS accuracy achieved
-                    finalizeGPS(bestPosition);
-                } else if (bestPosition && bestPosition.coords.accuracy <= 100) {
-                    // Acceptable but not ideal - warn user
+                if (positionReadings.length === 0) {
+                    statusDiv.className = 'alert alert-danger';
+                    statusDiv.innerHTML = `<span class="status-indicator status-error"></span>
+                        <strong>No GPS readings received</strong><br>
+                        <small>Please check your location permissions and try again.</small>`;
+                    submitBtn.disabled = true;
+                    return;
+                }
+                
+                // Find best reading
+                const bestReading = positionReadings.reduce((best, current) => 
+                    current.coords.accuracy < best.coords.accuracy ? current : best
+                );
+                
+                if (bestReading.coords.accuracy <= 50) {
+                    finalizeGPS(bestReading);
+                } else if (bestReading.coords.accuracy <= 100 && positionReadings.length >= 10) {
+                    // Acceptable with enough readings
                     statusDiv.className = 'alert alert-warning';
                     statusDiv.innerHTML = `<span class="status-indicator status-warning"></span>
-                        <strong>GPS accuracy is moderate (${Math.round(bestPosition.coords.accuracy)}m)</strong><br>
-                        <small>For better accuracy, move to an area with better GPS signal or wait longer. You can still submit, but location may be less accurate.</small>`;
-                    finalizeGPS(bestPosition);
+                        <strong>GPS accuracy is moderate (${Math.round(bestReading.coords.accuracy)}m)</strong><br>
+                        <small>For better accuracy, move to an area with better GPS signal. You can still submit.</small>`;
+                    finalizeGPS(bestReading);
                 } else {
-                    // Reject poor accuracy (likely network-based)
+                    // Reject poor accuracy
                     statusDiv.className = 'alert alert-danger';
                     statusDiv.innerHTML = `<span class="status-indicator status-error"></span>
                         <strong>GPS signal too weak</strong><br>
-                        <small>Unable to get accurate GPS location (accuracy: ${bestPosition ? Math.round(bestPosition.coords.accuracy) : 'N/A'}m). 
-                        Network-based location detected and rejected. Please:<br>
+                        <small>Unable to get accurate GPS location (best: ${Math.round(bestReading.coords.accuracy)}m from ${positionReadings.length} readings). 
+                        Please:<br>
                         • Move closer to a window or go outside<br>
                         • Ensure location services are set to "High Accuracy" mode<br>
-                        • Wait longer for GPS to lock<br>
                         • Try refreshing the page</small>`;
                     submitBtn.disabled = true;
                     currentLatitude = null;
                     currentLongitude = null;
                 }
-            }, 60000); // Increased to 60 seconds
+            }, 90000); // 90 seconds for students
         }
         
         // Haversine formula
