@@ -25,6 +25,36 @@
     .stat-card-admin:hover {
         transform: translateY(-5px);
     }
+
+    /* Mobile Responsive */
+    @media (max-width: 767.98px) {
+        .admin-header {
+            padding: 1.5rem 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .admin-header h2 {
+            font-size: 1.5rem;
+        }
+        .stat-card-admin .card-body {
+            padding: 1rem;
+        }
+        .stat-card-admin h2 {
+            font-size: 1.5rem;
+        }
+        .stat-card-admin .bg-opacity-10 {
+            padding: 0.75rem !important;
+        }
+        .stat-card-admin .bg-opacity-10 i {
+            font-size: 1.25rem !important;
+        }
+        .card-body .row.g-3 > [class*="col-"] {
+            margin-bottom: 1rem;
+        }
+        .card-body .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
 </style>
 {% endblock %}
 

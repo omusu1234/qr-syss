@@ -2,10 +2,42 @@
 
 {% block title %}{% if is_expired %}Session Expired{% else %}QR Code Generated{% endif %}{% endblock %}
 
+{% block extra_css %}
+<style>
+    @media (max-width: 575.98px) {
+        .card {
+            margin: 0 10px;
+        }
+        .card-header h2 {
+            font-size: 1.25rem;
+        }
+        .input-group {
+            flex-direction: column;
+        }
+        .input-group .form-control {
+            border-radius: var(--border-radius) !important;
+            margin-bottom: 0.5rem;
+        }
+        .input-group .btn {
+            width: 100%;
+            border-radius: var(--border-radius) !important;
+        }
+        .btn-group {
+            flex-direction: column;
+            width: 100%;
+        }
+        .btn-group .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="text-center">
     {% if is_expired %}
-    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px;">
+    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px; width: 100%;">
         <div class="card-header bg-danger">
             <h2 class="mb-0 text-white"><i class="bi bi-x-circle"></i> Session Expired</h2>
         </div>
@@ -27,7 +59,7 @@
         </div>
     </div>
     {% else %}
-    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px;">
+    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px; width: 100%;">
         <div class="card-header bg-success">
             <h2 class="mb-0 text-white"><i class="bi bi-check-circle"></i> QR Code Generated Successfully!</h2>
         </div>
