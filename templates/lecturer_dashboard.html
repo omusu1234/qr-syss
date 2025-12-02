@@ -21,20 +21,85 @@
     {% endif %}
 </h2>
 
+<!-- Quick Stats Cards -->
 <div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-primary">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-book"></i> My Units</h5>
-                <h2 class="text-primary">{{ units|length }}</h2>
+                <h6 class="card-title text-muted"><i class="bi bi-book"></i> My Units</h6>
+                <h2 class="text-primary mb-0">{{ units|length }}</h2>
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-success">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-calendar-check"></i> Recent Sessions</h5>
-                <h2 class="text-success">{{ recent_sessions|length }}</h2>
+                <h6 class="card-title text-muted"><i class="bi bi-calendar-check"></i> Total Sessions</h6>
+                <h2 class="text-success mb-0">{{ stats.total_sessions }}</h2>
+                <small class="text-muted">{{ stats.active_sessions }} active</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-info">
+            <div class="card-body">
+                <h6 class="card-title text-muted"><i class="bi bi-people"></i> Total Attendances</h6>
+                <h2 class="text-info mb-0">{{ stats.total_attendances }}</h2>
+                <small class="text-muted">Avg: {{ stats.attendance_rate }}/session</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h6 class="card-title text-muted"><i class="bi bi-clock-history"></i> This Week</h6>
+                <h2 class="text-warning mb-0">{{ stats.attendances_this_week }}</h2>
+                <small class="text-muted">{{ stats.sessions_this_week }} sessions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Stats Row -->
+<div class="row mb-4">
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-secondary">
+            <div class="card-body">
+                <h6 class="card-title text-muted"><i class="bi bi-calendar-month"></i> This Month</h6>
+                <h3 class="mb-0">{{ stats.attendances_this_month }}</h3>
+                <small class="text-muted">{{ stats.sessions_this_month }} sessions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-danger">
+            <div class="card-body">
+                <h6 class="card-title text-muted"><i class="bi bi-exclamation-triangle"></i> Late Arrivals</h6>
+                <h3 class="text-danger mb-0">{{ stats.late_count }}</h3>
+                <small class="text-muted">Total late submissions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h6 class="card-title text-muted"><i class="bi bi-graph-up"></i> Attendance Rate</h6>
+                <h3 class="mb-0">{{ stats.attendance_rate }}</h3>
+                <small class="text-muted">Avg per session</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Attendance Trend (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="attendanceChart" height="80"></canvas>
             </div>
         </div>
     </div>
@@ -44,9 +109,14 @@
     <a href="{{ url_for('create_session') }}" class="btn btn-primary btn-lg">
         <i class="bi bi-plus-circle"></i> Create New QR Session
     </a>
-    <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary">
-        <i class="bi bi-list-ul"></i> View All Sessions
-    </a>
+    <div class="btn-group">
+        <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary">
+            <i class="bi bi-list-ul"></i> View All Sessions
+        </a>
+        <a href="{{ url_for('lecturer_student_attendance_history') }}" class="btn btn-outline-info">
+            <i class="bi bi-person-check"></i> Student History
+        </a>
+    </div>
 </div>
 
 {% if units %}
@@ -110,6 +180,52 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Chart.js for attendance visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    // Attendance Chart
+    const ctx = document.getElementById('attendanceChart');
+    if (ctx) {
+        const chartData = {{ stats.chart_data|tojson }};
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.map(d => d.day),
+                datasets: [{
+                    label: 'Attendances',
+                    data: chartData.map(d => d.count),
+                    borderColor: 'rgb(0, 102, 204)',
+                    backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
 
 

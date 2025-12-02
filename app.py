@@ -17,6 +17,11 @@ import os
 import logging
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -356,11 +361,93 @@ def lecturer_dashboard():
         Notification.recipient_type == 'all_lecturers'
     ).order_by(Notification.created_at.desc()).limit(10).all()
     
+    # Calculate quick stats
+    all_sessions = LectureSession.query.join(Unit).filter(
+        Unit.lecturer_id == lecturer.id
+    ).all()
+    
+    total_sessions = len(all_sessions)
+    active_sessions = len([s for s in all_sessions if s.is_active])
+    
+    # Get all attendances for lecturer's sessions
+    session_ids = [s.id for s in all_sessions]
+    total_attendances = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids)
+    ).count() if session_ids else 0
+    
+    # This week's stats
+    week_start = datetime.utcnow() - timedelta(days=7)
+    sessions_this_week = LectureSession.query.join(Unit).filter(
+        Unit.lecturer_id == lecturer.id,
+        LectureSession.created_at >= week_start
+    ).count()
+    
+    attendances_this_week = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids),
+        Attendance.submitted_at >= week_start
+    ).count() if session_ids else 0
+    
+    # This month's stats
+    month_start = datetime.utcnow() - timedelta(days=30)
+    sessions_this_month = LectureSession.query.join(Unit).filter(
+        Unit.lecturer_id == lecturer.id,
+        LectureSession.created_at >= month_start
+    ).count()
+    
+    attendances_this_month = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids),
+        Attendance.submitted_at >= month_start
+    ).count() if session_ids else 0
+    
+    # Late arrivals count
+    late_count = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids),
+        Attendance.is_late == True
+    ).count() if session_ids else 0
+    
+    # Calculate attendance rate (average attendance per session)
+    attendance_rate = 0
+    if total_sessions > 0:
+        attendance_rate = round((total_attendances / total_sessions), 1)
+    
+    # Get attendance data for charts (last 7 days)
+    chart_data = []
+    for i in range(6, -1, -1):
+        date = datetime.utcnow() - timedelta(days=i)
+        date_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        date_end = date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        day_attendances = Attendance.query.filter(
+            Attendance.session_id.in_(session_ids),
+            Attendance.submitted_at >= date_start,
+            Attendance.submitted_at <= date_end
+        ).count() if session_ids else 0
+        
+        chart_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'day': date.strftime('%a'),
+            'count': day_attendances
+        })
+    
+    stats = {
+        'total_sessions': total_sessions,
+        'active_sessions': active_sessions,
+        'total_attendances': total_attendances,
+        'sessions_this_week': sessions_this_week,
+        'attendances_this_week': attendances_this_week,
+        'sessions_this_month': sessions_this_month,
+        'attendances_this_month': attendances_this_month,
+        'late_count': late_count,
+        'attendance_rate': attendance_rate,
+        'chart_data': chart_data
+    }
+    
     return render_template('lecturer_dashboard.html', 
                          lecturer=lecturer, 
                          units=units, 
                          recent_sessions=recent_sessions,
-                         notifications=notifications)
+                         notifications=notifications,
+                         stats=stats)
 
 @app.route('/lecturer/create-session', methods=['GET', 'POST'])
 @lecturer_required
@@ -850,6 +937,9 @@ def view_attendance(session_id):
     search = request.args.get('search', '').strip()
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    status_filter = request.args.get('status', '')  # all, on_time, late
+    sort_by = request.args.get('sort_by', 'submitted_at')  # submitted_at, admission_no, student_name
+    sort_order = request.args.get('sort_order', 'desc')  # asc, desc
     
     # Build query
     query = Attendance.query.filter_by(session_id=session_id)
@@ -866,15 +956,47 @@ def view_attendance(session_id):
             (Attendance.admission_no.like(f'%{search}%')) |
             (Attendance.student_name.like(f'%{search}%'))
         )
+    if status_filter == 'on_time':
+        query = query.filter(Attendance.is_late == False)
+    elif status_filter == 'late':
+        query = query.filter(Attendance.is_late == True)
     
-    attendances = query.order_by(Attendance.submitted_at.desc()).all()
+    # Apply sorting
+    if sort_by == 'admission_no':
+        if sort_order == 'asc':
+            query = query.order_by(Attendance.admission_no.asc())
+        else:
+            query = query.order_by(Attendance.admission_no.desc())
+    elif sort_by == 'student_name':
+        if sort_order == 'asc':
+            query = query.order_by(Attendance.student_name.asc())
+        else:
+            query = query.order_by(Attendance.student_name.desc())
+    else:  # submitted_at
+        if sort_order == 'asc':
+            query = query.order_by(Attendance.submitted_at.asc())
+        else:
+            query = query.order_by(Attendance.submitted_at.desc())
+    
+    attendances = query.all()
+    
+    # Calculate statistics
+    total_count = len(attendances)
+    on_time_count = len([a for a in attendances if not a.is_late])
+    late_count = len([a for a in attendances if a.is_late])
     
     return render_template('view_attendance.html', 
                          session=session_obj, 
                          attendances=attendances,
                          search=search,
                          start_date=start_date,
-                         end_date=end_date)
+                         end_date=end_date,
+                         status_filter=status_filter,
+                         sort_by=sort_by,
+                         sort_order=sort_order,
+                         total_count=total_count,
+                         on_time_count=on_time_count,
+                         late_count=late_count)
 
 @app.route('/lecturer/export-attendance/<int:session_id>')
 @lecturer_required
@@ -1409,6 +1531,75 @@ def view_session_qr(session_id):
                          is_expired=is_expired,
                          expires_timestamp=expires_timestamp)
 
+@app.route('/lecturer/duplicate-session/<int:session_id>')
+@lecturer_required
+def duplicate_session(session_id):
+    """Duplicate an existing session with new settings"""
+    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+    if not lecturer:
+        flash('Lecturer profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    original_session = LectureSession.query.get_or_404(session_id)
+    
+    # Verify lecturer owns this unit
+    if original_session.unit.lecturer_id != lecturer.id:
+        flash('Access denied', 'error')
+        return redirect(url_for('lecturer_dashboard'))
+    
+    # Create new session with same settings
+    new_session = LectureSession(
+        session_name=f"{original_session.session_name} (Copy)",
+        unit_id=original_session.unit_id,
+        lecture_hall_latitude=original_session.lecture_hall_latitude,
+        lecture_hall_longitude=original_session.lecture_hall_longitude,
+        location_radius=original_session.location_radius,
+        hall_name=original_session.hall_name,
+        qr_code_token=secrets.token_urlsafe(32),
+        is_active=False,  # Start as inactive
+        expires_at=datetime.utcnow() + timedelta(minutes=app.config['QR_CODE_EXPIRY_MINUTES']),
+        session_start_time=original_session.session_start_time,
+        late_threshold_minutes=original_session.late_threshold_minutes
+    )
+    
+    db.session.add(new_session)
+    db.session.commit()
+    
+    flash(f'Session duplicated successfully! New session: {new_session.session_name}', 'success')
+    return redirect(url_for('lecturer_sessions'))
+
+@app.route('/lecturer/extend-session/<int:session_id>', methods=['GET', 'POST'])
+@lecturer_required
+def extend_session(session_id):
+    """Extend session expiration time"""
+    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+    if not lecturer:
+        flash('Lecturer profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    session_obj = LectureSession.query.get_or_404(session_id)
+    
+    # Verify lecturer owns this unit
+    if session_obj.unit.lecturer_id != lecturer.id:
+        flash('Access denied', 'error')
+        return redirect(url_for('lecturer_dashboard'))
+    
+    if request.method == 'POST':
+        minutes = request.form.get('minutes', type=int)
+        if minutes and minutes > 0:
+            session_obj.expires_at = datetime.utcnow() + timedelta(minutes=minutes)
+            session_obj.is_active = True
+            db.session.commit()
+            # Format expiration time for display
+            local_tz = timezone(timedelta(hours=TIMEZONE_OFFSET_HOURS))
+            local_expiry = session_obj.expires_at.replace(tzinfo=timezone.utc).astimezone(local_tz)
+            flash(f'Session extended by {minutes} minutes. New expiration: {local_expiry.strftime("%Y-%m-%d %H:%M:%S")}', 'success')
+            return redirect(url_for('view_session_qr', session_id=session_id))
+        else:
+            flash('Invalid minutes value', 'error')
+    
+    return render_template('extend_session.html', session=session_obj)
+
 @app.route('/lecturer/delete-session/<int:session_id>', methods=['POST'])
 @lecturer_required
 def delete_session(session_id):
@@ -1618,6 +1809,191 @@ def export_attendance_csv(session_id):
         as_attachment=True,
         download_name=filename
     )
+
+@app.route('/lecturer/export-attendance-pdf/<int:session_id>')
+@lecturer_required
+def export_attendance_pdf(session_id):
+    """Export attendance records to PDF format"""
+    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+    if not lecturer:
+        flash('Lecturer profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    session_obj = LectureSession.query.get_or_404(session_id)
+    
+    # Verify lecturer owns this unit
+    if session_obj.unit.lecturer_id != lecturer.id:
+        flash('Access denied', 'error')
+        return redirect(url_for('lecturer_dashboard'))
+    
+    # Get all attendance records
+    attendances = Attendance.query.filter_by(session_id=session_id).order_by(
+        Attendance.submitted_at.asc()
+    ).all()
+    
+    # Create PDF in memory
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        textColor=colors.HexColor('#0066cc'),
+        spaceAfter=30,
+        alignment=1  # Center
+    )
+    
+    # Add title
+    title = Paragraph(f"Attendance Report: {session_obj.session_name}", title_style)
+    elements.append(title)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Add session information
+    info_data = [
+        ['Session Name:', session_obj.session_name],
+        ['Unit:', f"{session_obj.unit.unit_code} - {session_obj.unit.unit_name}"],
+        ['Created:', session_obj.created_at.strftime('%Y-%m-%d %H:%M:%S')],
+        ['Expires:', session_obj.expires_at.strftime('%Y-%m-%d %H:%M:%S')],
+        ['Status:', 'Active' if session_obj.is_active else 'Expired'],
+        ['Total Students:', str(len(attendances))]
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 4*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Add attendance table
+    if attendances:
+        table_data = [['#', 'Admission No', 'Student Name', 'Submitted At', 'Status']]
+        
+        for idx, attendance in enumerate(attendances, 1):
+            status = f"Late ({attendance.arrival_minutes_late}m)" if attendance.is_late else "On Time"
+            table_data.append([
+                str(idx),
+                attendance.admission_no,
+                attendance.student_name,
+                attendance.submitted_at.strftime('%Y-%m-%d %H:%M'),
+                status
+            ])
+        
+        attendance_table = Table(table_data, colWidths=[0.5*inch, 1.5*inch, 2.5*inch, 1.5*inch, 1*inch])
+        attendance_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+        ]))
+        elements.append(attendance_table)
+    else:
+        elements.append(Paragraph("No attendance records found.", styles['Normal']))
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"attendance_{session_obj.session_name.replace(' ', '_')}_{session_id}.pdf"
+    
+    return send_file(
+        buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/lecturer/student-attendance-history')
+@lecturer_required
+def lecturer_student_attendance_history():
+    """View attendance history for a specific student (Lecturer view)"""
+    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+    if not lecturer:
+        flash('Lecturer profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    admission_no = request.args.get('admission_no', '').strip()
+    unit_id = request.args.get('unit_id', type=int)
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    # Get lecturer's units
+    lecturer_units = Unit.query.filter_by(lecturer_id=lecturer.id).all()
+    unit_ids = [u.id for u in lecturer_units]
+    
+    # Build query - only for lecturer's sessions
+    query = Attendance.query.join(LectureSession).join(Unit).filter(
+        Unit.id.in_(unit_ids)
+    )
+    
+    if admission_no:
+        query = query.filter(Attendance.admission_no == admission_no)
+    
+    if unit_id and unit_id in unit_ids:
+        query = query.filter(Unit.id == unit_id)
+    
+    attendances = query.order_by(Attendance.submitted_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    # Get statistics for the student
+    stats = None
+    if admission_no:
+        # Only count attendances from lecturer's sessions
+        total_attendance = Attendance.query.join(LectureSession).join(Unit).filter(
+            Unit.id.in_(unit_ids),
+            Attendance.admission_no == admission_no
+        ).count()
+        
+        total_sessions = LectureSession.query.join(Unit).filter(
+            Unit.id.in_(unit_ids)
+        ).count()
+        
+        late_count = Attendance.query.join(LectureSession).join(Unit).filter(
+            Unit.id.in_(unit_ids),
+            Attendance.admission_no == admission_no,
+            Attendance.is_late == True
+        ).count()
+        
+        # Get unique sessions attended
+        sessions_attended = db.session.query(LectureSession).join(Attendance).join(Unit).filter(
+            Unit.id.in_(unit_ids),
+            Attendance.admission_no == admission_no
+        ).distinct().count()
+        
+        attendance_percentage = round((sessions_attended / total_sessions * 100), 1) if total_sessions > 0 else 0
+        
+        stats = {
+            'total_attendance': total_attendance,
+            'sessions_attended': sessions_attended,
+            'total_sessions': total_sessions,
+            'attendance_percentage': attendance_percentage,
+            'late_count': late_count
+        }
+    
+    return render_template('lecturer_student_history.html', 
+                         attendances=attendances, 
+                         admission_no=admission_no,
+                         unit_id=unit_id,
+                         lecturer_units=lecturer_units,
+                         stats=stats)
 
 @app.route('/admin/export-attendance-by-department')
 @admin_required

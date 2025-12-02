@@ -42,6 +42,14 @@
                     <a href="{{ url_for('view_attendance', session_id=session.id) }}" class="btn btn-sm btn-primary">
                         <i class="bi bi-list-check"></i> View Attendance
                     </a>
+                    {% if session.is_active %}
+                    <a href="{{ url_for('extend_session', session_id=session.id) }}" class="btn btn-sm btn-warning">
+                        <i class="bi bi-clock-history"></i> Extend Time
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('duplicate_session', session_id=session.id) }}" class="btn btn-sm btn-secondary">
+                        <i class="bi bi-files"></i> Duplicate
+                    </a>
                     <form method="POST" action="{{ url_for('delete_session', session_id=session.id) }}" 
                           style="display: inline;" 
                           onsubmit="return confirm('Are you sure you want to delete this session? This will also delete all attendance records for this session. This action cannot be undone.');">
