@@ -2,67 +2,139 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 
-{% block content %}
-<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Admin Dashboard</h2>
+{% block extra_css %}
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+    .admin-header h2 {
+        color: white;
+        border: none;
+        margin: 0;
+    }
+    .stat-card-admin {
+        height: 100%;
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+    }
+    .stat-card-admin:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
+{% block content %}
+<div class="admin-header">
+    <h2 class="mb-2"><i class="bi bi-speedometer2"></i> Admin Dashboard</h2>
+    <p class="mb-0 opacity-75">System administration and management</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card stat-card-admin border-primary h-100">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-people"></i> Lecturers</h5>
-                <h2 class="text-primary">{{ lecturers|length }}</h2>
-                <a href="{{ url_for('manage_lecturers') }}" class="btn btn-sm btn-primary">Manage Lecturers</a>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-people me-1"></i>Lecturers
+                        </h6>
+                        <h2 class="text-primary mb-3 fw-bold">{{ lecturers|length }}</h2>
+                        <a href="{{ url_for('manage_lecturers') }}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-gear"></i> Manage Lecturers
+                        </a>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-people text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
+    <div class="col-md-6">
+        <div class="card stat-card-admin border-success h-100">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-book"></i> Units</h5>
-                <h2 class="text-success">{{ units|length }}</h2>
-                <a href="{{ url_for('manage_lecturers') }}" class="btn btn-sm btn-success">Manage Units</a>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-book me-1"></i>Units
+                        </h6>
+                        <h2 class="text-success mb-3 fw-bold">{{ units|length }}</h2>
+                        <a href="{{ url_for('manage_units') }}" class="btn btn-success btn-sm">
+                            <i class="bi bi-gear"></i> Manage Units
+                        </a>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-book text-success" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="mt-4">
-    <h4>Quick Actions</h4>
-    <div class="d-grid gap-2 d-md-block">
-        <a href="{{ url_for('manage_lecturers') }}" class="btn btn-primary">
-            <i class="bi bi-person-plus"></i> Add Lecturer
-        </a>
-        <a href="{{ url_for('send_notification') }}" class="btn btn-info">
-            <i class="bi bi-bell"></i> Send Notification to Lecturers
-        </a>
-        <a href="{{ url_for('activity_logs') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-clock-history"></i> Activity Logs
-        </a>
-        <a href="{{ url_for('login_history') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-shield-check"></i> Login History
-        </a>
-        <a href="{{ url_for('student_attendance_history') }}" class="btn btn-outline-info">
-            <i class="bi bi-person-check"></i> Student Attendance History
-        </a>
-        <a href="{{ url_for('export_attendance_by_department') }}" class="btn btn-outline-success">
-            <i class="bi bi-download"></i> Export by Department
-        </a>
+<div class="card shadow-md mb-4">
+    <div class="card-header">
+        <h5 class="mb-0 text-white"><i class="bi bi-lightning-charge"></i> Quick Actions</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('manage_lecturers') }}" class="btn btn-primary w-100">
+                    <i class="bi bi-person-plus"></i> Add Lecturer
+                </a>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('send_notification') }}" class="btn btn-info w-100">
+                    <i class="bi bi-bell"></i> Send Notification
+                </a>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('activity_logs') }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-clock-history"></i> Activity Logs
+                </a>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('login_history') }}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-shield-check"></i> Login History
+                </a>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('student_attendance_history') }}" class="btn btn-outline-info w-100">
+                    <i class="bi bi-person-check"></i> Student History
+                </a>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <a href="{{ url_for('export_attendance_by_department') }}" class="btn btn-outline-success w-100">
+                    <i class="bi bi-download"></i> Export by Department
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 
 {% if recent_notifications %}
-<div class="mt-4">
-    <h4>Recent Notifications Sent</h4>
-    <div class="list-group">
-        {% for notification in recent_notifications %}
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1">{{ notification.title }}</h6>
-                <small>{{ (notification.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+<div class="card shadow-md">
+    <div class="card-header">
+        <h5 class="mb-0 text-white"><i class="bi bi-bell"></i> Recent Notifications Sent</h5>
+    </div>
+    <div class="card-body">
+        <div class="list-group list-group-flush">
+            {% for notification in recent_notifications %}
+            <div class="list-group-item border-0 px-0 py-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0 fw-bold">{{ notification.title }}</h6>
+                    <small class="text-muted">{{ (notification.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                <p class="mb-0 text-muted">{{ notification.message[:100] }}{% if notification.message|length > 100 %}...{% endif %}</p>
             </div>
-            <p class="mb-1 text-muted">{{ notification.message[:100] }}{% if notification.message|length > 100 %}...{% endif %}</p>
+            {% if not loop.last %}<hr class="my-2">{% endif %}
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>
 {% endif %}

@@ -3,48 +3,68 @@
 {% block title %}Extend Session{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">
-    <i class="bi bi-clock-history"></i> Extend Session Time
-</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="bi bi-clock-history"></i> Extend Session Time
+    </h2>
+    <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Sessions
+    </a>
+</div>
 
-<div class="card">
+<div class="card shadow-lg">
+    <div class="card-header">
+        <h5 class="mb-0 text-white"><i class="bi bi-clock"></i> Session Information</h5>
+    </div>
     <div class="card-body">
-        <h5 class="card-title">{{ session.session_name }}</h5>
-        <p class="card-text">
-            <strong>Unit:</strong> {{ session.unit.unit_code }} - {{ session.unit.unit_name }}<br>
-            <strong>Current Expiration:</strong> {{ (session.expires_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}<br>
-            <strong>Status:</strong> 
-            {% if session.is_active %}
-                <span class="badge bg-success">Active</span>
-            {% else %}
-                <span class="badge bg-danger">Expired</span>
-            {% endif %}
-        </p>
+        <div class="mb-4 p-3 bg-light rounded">
+            <h5 class="mb-3">{{ session.session_name }}</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-book text-primary me-2"></i>
+                        <strong>Unit:</strong> <span class="ms-2">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar text-info me-2"></i>
+                        <strong>Expires:</strong> <span class="ms-2">{{ (session.expires_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <strong>Status:</strong> 
+                        {% if session.is_active %}
+                            <span class="badge bg-success ms-2">Active</span>
+                        {% else %}
+                            <span class="badge bg-danger ms-2">Expired</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
         
         <form method="POST" action="{{ url_for('extend_session', session_id=session.id) }}">
-            <div class="mb-3">
-                <label for="minutes" class="form-label">Extend by (minutes)</label>
-                <input type="number" class="form-control" id="minutes" name="minutes" 
+            <div class="mb-4">
+                <label for="minutes" class="form-label fw-bold">
+                    <i class="bi bi-hourglass-split"></i> Extend by (minutes)
+                </label>
+                <input type="number" class="form-control form-control-lg" id="minutes" name="minutes" 
                        min="1" max="1440" value="60" required>
                 <small class="form-text text-muted">Enter number of minutes to extend the session (1-1440 minutes)</small>
             </div>
             
-            <div class="btn-group">
-                <button type="submit" class="btn btn-primary">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">
                     <i class="bi bi-clock"></i> Extend Session
                 </button>
-                <a href="{{ url_for('view_session_qr', session_id=session.id) }}" class="btn btn-secondary">
+                <a href="{{ url_for('view_session_qr', session_id=session.id) }}" class="btn btn-outline-secondary btn-lg">
                     <i class="bi bi-x-circle"></i> Cancel
                 </a>
             </div>
         </form>
     </div>
-</div>
-
-<div class="mt-3">
-    <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Sessions
-    </a>
 </div>
 {% endblock %}
 

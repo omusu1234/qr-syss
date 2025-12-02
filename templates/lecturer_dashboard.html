@@ -2,90 +2,193 @@
 
 {% block title %}Lecturer Dashboard{% endblock %}
 
+{% block extra_css %}
+<style>
+    .welcome-header {
+        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: var(--border-radius-lg);
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-lg);
+    }
+    .welcome-header h2 {
+        color: white;
+        border: none;
+        margin: 0;
+        padding: 0;
+    }
+    .stat-card {
+        height: 100%;
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    .stat-card.border-primary { border-left-color: #0066cc; }
+    .stat-card.border-success { border-left-color: #28a745; }
+    .stat-card.border-info { border-left-color: #17a2b8; }
+    .stat-card.border-warning { border-left-color: #ffc107; }
+    .stat-card.border-danger { border-left-color: #dc3545; }
+    .stat-card.border-secondary { border-left-color: #6c757d; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2 class="mb-4">
-    <i class="bi bi-person-badge"></i> Welcome, {{ lecturer.full_name }}
-    {% if notifications %}
-    <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-info position-relative">
-        <i class="bi bi-bell-fill"></i> Notifications
-        {% if notifications|length > 0 %}
-        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            {{ notifications|length }}
-        </span>
+<div class="welcome-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+            <h2 class="mb-2">
+                <i class="bi bi-person-badge"></i> Welcome, {{ lecturer.full_name }}
+            </h2>
+            <p class="mb-0 opacity-75">Manage your attendance sessions and track student participation</p>
+        </div>
+        {% if notifications %}
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-light position-relative">
+            <i class="bi bi-bell-fill"></i> Notifications
+            {% if notifications|length > 0 %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {{ notifications|length }}
+            </span>
+            {% endif %}
+        </a>
+        {% else %}
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-outline-light">
+            <i class="bi bi-bell"></i> Notifications
+        </a>
         {% endif %}
-    </a>
-    {% else %}
-    <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-bell"></i> Notifications
-    </a>
-    {% endif %}
-</h2>
+    </div>
+</div>
 
 <!-- Quick Stats Cards -->
-<div class="row mb-4">
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card border-primary">
+<div class="row mb-4 g-3">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-primary h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-book"></i> My Units</h6>
-                <h2 class="text-primary mb-0">{{ units|length }}</h2>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-book me-1"></i>My Units
+                        </h6>
+                        <h2 class="text-primary mb-0 fw-bold">{{ units|length }}</h2>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-book text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card border-success">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-success h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-calendar-check"></i> Total Sessions</h6>
-                <h2 class="text-success mb-0">{{ stats.total_sessions }}</h2>
-                <small class="text-muted">{{ stats.active_sessions }} active</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-calendar-check me-1"></i>Total Sessions
+                        </h6>
+                        <h2 class="text-success mb-0 fw-bold">{{ stats.total_sessions }}</h2>
+                        <small class="text-muted">{{ stats.active_sessions }} active</small>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-calendar-check text-success" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card border-info">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-info h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-people"></i> Total Attendances</h6>
-                <h2 class="text-info mb-0">{{ stats.total_attendances }}</h2>
-                <small class="text-muted">Avg: {{ stats.attendance_rate }}/session</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-people me-1"></i>Total Attendances
+                        </h6>
+                        <h2 class="text-info mb-0 fw-bold">{{ stats.total_attendances }}</h2>
+                        <small class="text-muted">Avg: {{ stats.attendance_rate }}/session</small>
+                    </div>
+                    <div class="bg-info bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-people text-info" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card border-warning">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-warning h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-clock-history"></i> This Week</h6>
-                <h2 class="text-warning mb-0">{{ stats.attendances_this_week }}</h2>
-                <small class="text-muted">{{ stats.sessions_this_week }} sessions</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-clock-history me-1"></i>This Week
+                        </h6>
+                        <h2 class="text-warning mb-0 fw-bold">{{ stats.attendances_this_week }}</h2>
+                        <small class="text-muted">{{ stats.sessions_this_week }} sessions</small>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-clock-history text-warning" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Additional Stats Row -->
-<div class="row mb-4">
-    <div class="col-md-4 col-sm-6 mb-3">
-        <div class="card border-secondary">
+<div class="row mb-4 g-3">
+    <div class="col-md-4 col-sm-6">
+        <div class="card stat-card border-secondary h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-calendar-month"></i> This Month</h6>
-                <h3 class="mb-0">{{ stats.attendances_this_month }}</h3>
-                <small class="text-muted">{{ stats.sessions_this_month }} sessions</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-calendar-month me-1"></i>This Month
+                        </h6>
+                        <h3 class="mb-0 fw-bold">{{ stats.attendances_this_month }}</h3>
+                        <small class="text-muted">{{ stats.sessions_this_month }} sessions</small>
+                    </div>
+                    <div class="bg-secondary bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-calendar-month text-secondary" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4 col-sm-6 mb-3">
-        <div class="card border-danger">
+    <div class="col-md-4 col-sm-6">
+        <div class="card stat-card border-danger h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-exclamation-triangle"></i> Late Arrivals</h6>
-                <h3 class="text-danger mb-0">{{ stats.late_count }}</h3>
-                <small class="text-muted">Total late submissions</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Late Arrivals
+                        </h6>
+                        <h3 class="text-danger mb-0 fw-bold">{{ stats.late_count }}</h3>
+                        <small class="text-muted">Total late submissions</small>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4 col-sm-6 mb-3">
-        <div class="card border-primary">
+    <div class="col-md-4 col-sm-6">
+        <div class="card stat-card border-primary h-100">
             <div class="card-body">
-                <h6 class="card-title text-muted"><i class="bi bi-graph-up"></i> Attendance Rate</h6>
-                <h3 class="mb-0">{{ stats.attendance_rate }}</h3>
-                <small class="text-muted">Avg per session</small>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="text-muted mb-2 text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-graph-up me-1"></i>Attendance Rate
+                        </h6>
+                        <h3 class="mb-0 fw-bold">{{ stats.attendance_rate }}</h3>
+                        <small class="text-muted">Avg per session</small>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                        <i class="bi bi-graph-up text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -94,89 +197,118 @@
 <!-- Attendance Chart -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card">
+        <div class="card shadow-lg">
             <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Attendance Trend (Last 7 Days)</h5>
+                <h5 class="mb-0 text-white"><i class="bi bi-bar-chart"></i> Attendance Trend (Last 7 Days)</h5>
             </div>
-            <div class="card-body">
+            <div class="card-body p-4">
                 <canvas id="attendanceChart" height="80"></canvas>
             </div>
         </div>
     </div>
 </div>
 
-<div class="d-grid gap-2 mb-4">
-    <a href="{{ url_for('create_session') }}" class="btn btn-primary btn-lg">
-        <i class="bi bi-plus-circle"></i> Create New QR Session
-    </a>
-    <div class="btn-group">
-        <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary">
-            <i class="bi bi-list-ul"></i> View All Sessions
-        </a>
-        <a href="{{ url_for('lecturer_student_attendance_history') }}" class="btn btn-outline-info">
-            <i class="bi bi-person-check"></i> Student History
-        </a>
-    </div>
-</div>
-
-{% if units %}
-<div class="mt-4">
-    <h4>My Units</h4>
-    <div class="list-group">
-        {% for unit in units %}
-        <div class="list-group-item">
-            <h5 class="mb-1">{{ unit.unit_code }}</h5>
-            <p class="mb-1">{{ unit.unit_name }}</p>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-{% if recent_sessions %}
-<div class="mt-4">
-    <h4>Recent Sessions</h4>
-    <div class="list-group">
-        {% for session in recent_sessions %}
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-                <h5 class="mb-1">{{ session.session_name }}</h5>
-                <small>{{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
-            </div>
-            <p class="mb-1">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</p>
-            <a href="{{ url_for('view_attendance', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
-                View Attendance
+<!-- Quick Actions -->
+<div class="card mb-4 shadow-md">
+    <div class="card-body">
+        <h5 class="card-title mb-4"><i class="bi bi-lightning-charge"></i> Quick Actions</h5>
+        <div class="d-grid gap-2 d-md-flex">
+            <a href="{{ url_for('create_session') }}" class="btn btn-primary btn-lg flex-fill">
+                <i class="bi bi-plus-circle"></i> Create New QR Session
+            </a>
+            <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-list-ul"></i> View All Sessions
+            </a>
+            <a href="{{ url_for('lecturer_student_attendance_history') }}" class="btn btn-outline-info btn-lg">
+                <i class="bi bi-person-check"></i> Student History
             </a>
         </div>
-        {% endfor %}
     </div>
 </div>
-{% endif %}
 
-{% if notifications %}
-<div class="mt-4">
-    <h4>
-        <i class="bi bi-bell"></i> Notifications
-        <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-outline-primary">View All</a>
-    </h4>
-    <div class="list-group">
-        {% for notification in notifications[:5] %}
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-                <h6 class="mb-1">{{ notification.title }}</h6>
-                <small class="text-muted">{{ (notification.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+<div class="row g-4">
+    {% if units %}
+    <div class="col-md-6">
+        <div class="card shadow-md h-100">
+            <div class="card-header">
+                <h5 class="mb-0 text-white"><i class="bi bi-book"></i> My Units</h5>
             </div>
-            <p class="mb-1">{{ notification.message[:150] }}{% if notification.message|length > 150 %}...{% endif %}</p>
-            <div>
-                <small class="text-muted">
-                    <i class="bi bi-person"></i> From: {{ notification.sender.username }}
-                </small>
-                <a href="{{ url_for('view_notification', notification_id=notification.id) }}" class="btn btn-sm btn-outline-primary ms-2">
-                    Read More
-                </a>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for unit in units %}
+                    <div class="list-group-item border-0 px-0 py-3">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                <i class="bi bi-book text-primary"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">{{ unit.unit_code }}</h6>
+                                <p class="mb-0 text-muted small">{{ unit.unit_name }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
-        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if recent_sessions %}
+    <div class="col-md-6">
+        <div class="card shadow-md h-100">
+            <div class="card-header">
+                <h5 class="mb-0 text-white"><i class="bi bi-clock-history"></i> Recent Sessions</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for session in recent_sessions %}
+                    <div class="list-group-item border-0 px-0 py-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0 fw-bold">{{ session.session_name }}</h6>
+                            <small class="text-muted">{{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <p class="mb-2 text-muted small">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</p>
+                        <a href="{{ url_for('view_attendance', session_id=session.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> View Attendance
+                        </a>
+                    </div>
+                    {% if not loop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if notifications %}
+<div class="card shadow-md mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="bi bi-bell"></i> Notifications</h5>
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-light">View All</a>
+    </div>
+    <div class="card-body">
+        <div class="list-group list-group-flush">
+            {% for notification in notifications[:5] %}
+            <div class="list-group-item border-0 px-0 py-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0 fw-bold">{{ notification.title }}</h6>
+                    <small class="text-muted">{{ (notification.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                <p class="mb-2 text-muted">{{ notification.message[:150] }}{% if notification.message|length > 150 %}...{% endif %}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="bi bi-person"></i> From: {{ notification.sender.username }}
+                    </small>
+                    <a href="{{ url_for('view_notification', notification_id=notification.id) }}" class="btn btn-sm btn-outline-primary">
+                        Read More <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+            {% if not loop.last %}<hr class="my-2">{% endif %}
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endif %}
