@@ -438,6 +438,94 @@
 </div>
 {% endfor %}
 
+<!-- Edit Unit Modals -->
+{% for unit in units %}
+<div class="modal fade" id="editUnitModal{{ unit.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Unit: {{ unit.unit_code }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="edit_unit">
+                    <input type="hidden" name="unit_id" value="{{ unit.id }}">
+                    <div class="mb-3">
+                        <label for="edit_unit_code{{ unit.id }}" class="form-label">Unit Code</label>
+                        <input type="text" class="form-control" id="edit_unit_code{{ unit.id }}" 
+                               name="unit_code" value="{{ unit.unit_code }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_unit_name{{ unit.id }}" class="form-label">Unit Name</label>
+                        <input type="text" class="form-control" id="edit_unit_name{{ unit.id }}" 
+                               name="unit_name" value="{{ unit.unit_name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_lecturer_id{{ unit.id }}" class="form-label">Assign Lecturer</label>
+                        <select class="form-select" id="edit_lecturer_id{{ unit.id }}" name="lecturer_id" required>
+                            <option value="">Select lecturer...</option>
+                            {% for lecturer in lecturers %}
+                            <option value="{{ lecturer.id }}" {% if unit.lecturer_id == lecturer.id %}selected{% endif %}>
+                                {{ lecturer.full_name }} ({{ lecturer.employee_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Unit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Edit Department Modals -->
+{% for department in departments %}
+<div class="modal fade" id="editDepartmentModal{{ department.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Department: {{ department.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('manage_lecturers') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="edit_department">
+                    <input type="hidden" name="department_id" value="{{ department.id }}">
+                    <div class="mb-3">
+                        <label for="edit_dept_code{{ department.id }}" class="form-label">Department Code <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_dept_code{{ department.id }}" 
+                               name="code" value="{{ department.code }}" required maxlength="20"
+                               style="text-transform: uppercase;">
+                        <small class="text-muted">Short code for the department (e.g., CS for Computer Science)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_dept_name{{ department.id }}" class="form-label">Department Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="edit_dept_name{{ department.id }}" 
+                               name="name" value="{{ department.name }}" required maxlength="100">
+                        <small class="text-muted">Full name of the department</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_dept_description{{ department.id }}" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="edit_dept_description{{ department.id }}" 
+                                  name="description" rows="3" 
+                                  placeholder="Brief description of the department">{{ department.description or '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 <!-- Bulk Assign Department Modal -->
 <div class="modal fade" id="bulkAssignModal" tabindex="-1">
     <div class="modal-dialog">
