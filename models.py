@@ -108,12 +108,13 @@ class Attendance(db.Model):
     arrival_minutes_late = db.Column(db.Integer, nullable=True)  # Minutes late
     absence_reason = db.Column(db.Text, nullable=True)  # Reason for absence (if collected)
     photo_data = db.Column(db.Text, nullable=True)  # Base64 encoded photo of student
-    photo_hash = db.Column(db.String(64), nullable=True)  # Perceptual hash for duplicate detection
-    face_encoding = db.Column(db.Text, nullable=True)  # JSON encoded face encoding for face matching
+    photo_hash = db.Column(db.String(64), nullable=True)  # Perceptual hash for duplicate detection (optional)
+    face_encoding = db.Column(db.Text, nullable=True)  # JSON encoded face encoding for face matching (optional)
     
-    # Relationships
-    photo_matches_as_source = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.source_attendance_id', backref='source_attendance', lazy=True)
-    photo_matches_as_target = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.target_attendance_id', backref='target_attendance', lazy=True)
+    # Relationships to PhotoMatch (will be set up if PhotoMatch table exists)
+    # Note: These relationships are lazy-loaded, so they won't cause errors if table doesn't exist
+    photo_matches_as_source = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.source_attendance_id', backref='source_attendance', lazy=True, cascade='all, delete-orphan')
+    photo_matches_as_target = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.target_attendance_id', backref='target_attendance', lazy=True, cascade='all, delete-orphan')
     
     # Unique constraint to prevent duplicate submissions
     __table_args__ = (db.UniqueConstraint('session_id', 'admission_no', name='unique_session_admission'),)

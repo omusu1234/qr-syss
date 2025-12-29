@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
-from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notification, Department, ActivityLog, LoginHistory, PhotoMatch
+from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notification, Department, ActivityLog, LoginHistory
+# PhotoMatch is imported conditionally where needed to handle cases where table doesn't exist yet
 from database_sync import DatabaseSync
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
@@ -882,65 +883,104 @@ def submit_attendance():
             is_late = True
             arrival_minutes_late = int(time_diff)
     
-    # Analyze photo for fraud detection
-    from photo_analysis import calculate_photo_hash, extract_face_encoding, analyze_photo_for_fraud
-    
-    photo_hash = calculate_photo_hash(photo_data)
+    # Analyze photo for fraud detection (optional - gracefully handle if schema not ready)
+    photo_hash = None
     face_encoding = None
     fraud_matches = {'duplicates': [], 'similar_faces': []}
     
     try:
-        face_encoding = extract_face_encoding(photo_data)
-        # Detect matches before saving
-        fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
-    except Exception as e:
-        # If face recognition fails, still do duplicate detection
-        app.logger.warning(f"Face recognition not available, using duplicate detection only: {str(e)}")
-        # Still check for duplicates even if face recognition fails
+        from photo_analysis import calculate_photo_hash, extract_face_encoding, analyze_photo_for_fraud
+        
+        photo_hash = calculate_photo_hash(photo_data)
+        
         try:
+            face_encoding = extract_face_encoding(photo_data)
+            # Detect matches before saving
             fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
-        except Exception as e2:
-            app.logger.error(f"Photo analysis failed: {str(e2)}")
-            fraud_matches = {'duplicates': [], 'similar_faces': []}
+        except Exception as e:
+            # If face recognition fails, still do duplicate detection
+            app.logger.warning(f"Face recognition not available, using duplicate detection only: {str(e)}")
+            # Still check for duplicates even if face recognition fails
+            try:
+                fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
+            except Exception as e2:
+                app.logger.error(f"Photo analysis failed: {str(e2)}")
+                fraud_matches = {'duplicates': [], 'similar_faces': []}
+    except Exception as e:
+        # If photo analysis module fails entirely, continue without fraud detection
+        app.logger.warning(f"Fraud detection not available: {str(e)}")
     
     # Create attendance record
-    attendance = Attendance(
-        session_id=session_obj.id,
-        admission_no=admission_no,
-        student_name=student_name,
-        submission_latitude=latitude,
-        submission_longitude=longitude,
-        ip_address=get_client_ip(),
-        is_late=is_late,
-        arrival_minutes_late=arrival_minutes_late,
-        photo_data=photo_data,  # Store base64 encoded photo
-        photo_hash=photo_hash,
-        face_encoding=face_encoding
-    )
+    # Try with fraud detection fields first, fall back if columns don't exist
+    try:
+        attendance = Attendance(
+            session_id=session_obj.id,
+            admission_no=admission_no,
+            student_name=student_name,
+            submission_latitude=latitude,
+            submission_longitude=longitude,
+            ip_address=get_client_ip(),
+            is_late=is_late,
+            arrival_minutes_late=arrival_minutes_late,
+            photo_data=photo_data,
+            photo_hash=photo_hash,
+            face_encoding=face_encoding
+        )
+    except Exception as e:
+        # If fraud detection columns don't exist, create without them
+        app.logger.warning(f"Fraud detection columns not available, creating attendance without them: {str(e)}")
+        attendance = Attendance(
+            session_id=session_obj.id,
+            admission_no=admission_no,
+            student_name=student_name,
+            submission_latitude=latitude,
+            submission_longitude=longitude,
+            ip_address=get_client_ip(),
+            is_late=is_late,
+            arrival_minutes_late=arrival_minutes_late,
+            photo_data=photo_data
+        )
     
     db.session.add(attendance)
     db.session.flush()  # Get the attendance ID
     
-    # Create PhotoMatch records for detected fraud
-    from models import PhotoMatch
-    
-    for duplicate in fraud_matches.get('duplicates', []):
-        match = PhotoMatch(
-            source_attendance_id=attendance.id,
-            target_attendance_id=duplicate['attendance_id'],
-            match_type='duplicate',
-            similarity_score=None
-        )
-        db.session.add(match)
-    
-    for similar_face in fraud_matches.get('similar_faces', []):
-        match = PhotoMatch(
-            source_attendance_id=attendance.id,
-            target_attendance_id=similar_face['attendance_id'],
-            match_type='face_similar',
-            similarity_score=similar_face['similarity_score']
-        )
-        db.session.add(match)
+    # Create PhotoMatch records for detected fraud (only if table exists)
+    try:
+        from models import PhotoMatch
+        
+        # Check if PhotoMatch table exists by trying a simple query
+        try:
+            db.session.execute(text("SELECT 1 FROM photo_matches LIMIT 1"))
+            table_exists = True
+        except:
+            table_exists = False
+        
+        if table_exists and fraud_matches:
+            for duplicate in fraud_matches.get('duplicates', []):
+                try:
+                    match = PhotoMatch(
+                        source_attendance_id=attendance.id,
+                        target_attendance_id=duplicate['attendance_id'],
+                        match_type='duplicate',
+                        similarity_score=None
+                    )
+                    db.session.add(match)
+                except Exception as e:
+                    app.logger.warning(f"Failed to create duplicate match: {str(e)}")
+            
+            for similar_face in fraud_matches.get('similar_faces', []):
+                try:
+                    match = PhotoMatch(
+                        source_attendance_id=attendance.id,
+                        target_attendance_id=similar_face['attendance_id'],
+                        match_type='face_similar',
+                        similarity_score=similar_face['similarity_score']
+                    )
+                    db.session.add(match)
+                except Exception as e:
+                    app.logger.warning(f"Failed to create face match: {str(e)}")
+    except Exception as e:
+        app.logger.warning(f"PhotoMatch table not available: {str(e)}")
     
     db.session.commit()
     
@@ -1034,34 +1074,48 @@ def view_attendance(session_id):
     
     attendances = query.all()
     
-    # Get fraud detection matches for this session
-    from models import PhotoMatch
-    attendance_ids = [a.id for a in attendances]
-    fraud_matches = PhotoMatch.query.filter(
-        (PhotoMatch.source_attendance_id.in_(attendance_ids)) |
-        (PhotoMatch.target_attendance_id.in_(attendance_ids))
-    ).all()
-    
-    # Create a map of attendance_id -> list of matches
+    # Get fraud detection matches for this session (optional - gracefully handle if not available)
     fraud_map = {}
-    for match in fraud_matches:
-        if match.source_attendance_id not in fraud_map:
-            fraud_map[match.source_attendance_id] = []
-        if match.target_attendance_id not in fraud_map:
-            fraud_map[match.target_attendance_id] = []
-        fraud_map[match.source_attendance_id].append(match)
-        fraud_map[match.target_attendance_id].append(match)
+    unverified_count = 0
+    
+    try:
+        from models import PhotoMatch
+        
+        # Check if PhotoMatch table exists
+        try:
+            db.session.execute(text("SELECT 1 FROM photo_matches LIMIT 1"))
+            table_exists = True
+        except:
+            table_exists = False
+        
+        if table_exists:
+            attendance_ids = [a.id for a in attendances]
+            fraud_matches = PhotoMatch.query.filter(
+                (PhotoMatch.source_attendance_id.in_(attendance_ids)) |
+                (PhotoMatch.target_attendance_id.in_(attendance_ids))
+            ).all()
+            
+            # Create a map of attendance_id -> list of matches
+            for match in fraud_matches:
+                if match.source_attendance_id not in fraud_map:
+                    fraud_map[match.source_attendance_id] = []
+                if match.target_attendance_id not in fraud_map:
+                    fraud_map[match.target_attendance_id] = []
+                fraud_map[match.source_attendance_id].append(match)
+                fraud_map[match.target_attendance_id].append(match)
+            
+            # Count unverified matches
+            unverified_count = PhotoMatch.query.filter(
+                (PhotoMatch.source_attendance_id.in_(attendance_ids)) |
+                (PhotoMatch.target_attendance_id.in_(attendance_ids))
+            ).filter_by(verified_by_lecturer=None).count()
+    except Exception as e:
+        app.logger.warning(f"Fraud detection not available in view_attendance: {str(e)}")
     
     # Calculate statistics
     total_count = len(attendances)
     on_time_count = len([a for a in attendances if not a.is_late])
     late_count = len([a for a in attendances if a.is_late])
-    
-    # Count unverified matches
-    unverified_count = PhotoMatch.query.filter(
-        (PhotoMatch.source_attendance_id.in_(attendance_ids)) |
-        (PhotoMatch.target_attendance_id.in_(attendance_ids))
-    ).filter_by(verified_by_lecturer=None).count()
     
     return render_template('view_attendance.html', 
                          session=session_obj, 
@@ -1851,21 +1905,38 @@ def review_photo_matches(session_id):
         flash('Access denied', 'error')
         return redirect(url_for('lecturer_dashboard'))
     
-    from models import PhotoMatch
-    # Get all matches for this session
-    attendance_ids = [a.id for a in session_obj.attendances]
+    unverified_matches = []
+    verified_matches = []
     
-    # Get unverified matches
-    unverified_matches = PhotoMatch.query.filter(
-        ((PhotoMatch.source_attendance_id.in_(attendance_ids)) |
-         (PhotoMatch.target_attendance_id.in_(attendance_ids)))
-    ).filter_by(verified_by_lecturer=None).order_by(PhotoMatch.detected_at.desc()).all()
-    
-    # Get verified matches
-    verified_matches = PhotoMatch.query.filter(
-        ((PhotoMatch.source_attendance_id.in_(attendance_ids)) |
-         (PhotoMatch.target_attendance_id.in_(attendance_ids)))
-    ).filter(PhotoMatch.verified_by_lecturer.isnot(None)).order_by(PhotoMatch.verified_at.desc()).all()
+    try:
+        from models import PhotoMatch
+        
+        # Check if PhotoMatch table exists
+        try:
+            db.session.execute(text("SELECT 1 FROM photo_matches LIMIT 1"))
+            table_exists = True
+        except:
+            table_exists = False
+            flash('Fraud detection is not yet set up. Please run the database migration.', 'info')
+        
+        if table_exists:
+            # Get all matches for this session
+            attendance_ids = [a.id for a in session_obj.attendances]
+            
+            # Get unverified matches
+            unverified_matches = PhotoMatch.query.filter(
+                ((PhotoMatch.source_attendance_id.in_(attendance_ids)) |
+                 (PhotoMatch.target_attendance_id.in_(attendance_ids)))
+            ).filter_by(verified_by_lecturer=None).order_by(PhotoMatch.detected_at.desc()).all()
+            
+            # Get verified matches
+            verified_matches = PhotoMatch.query.filter(
+                ((PhotoMatch.source_attendance_id.in_(attendance_ids)) |
+                 (PhotoMatch.target_attendance_id.in_(attendance_ids)))
+            ).filter(PhotoMatch.verified_by_lecturer.isnot(None)).order_by(PhotoMatch.verified_at.desc()).all()
+    except Exception as e:
+        app.logger.error(f"Error loading photo matches: {str(e)}")
+        flash('Error loading fraud detection data. Please ensure the database migration has been run.', 'error')
     
     return render_template('review_matches.html',
                          session=session_obj,
@@ -1880,36 +1951,47 @@ def verify_photo_match(match_id):
     if not lecturer:
         return jsonify({'success': False, 'message': 'Lecturer profile not found'}), 400
     
-    from models import PhotoMatch
-    match = PhotoMatch.query.get_or_404(match_id)
-    
-    # Verify lecturer has access to this match
-    source_session = match.source_attendance.session
-    target_session = match.target_attendance.session
-    
-    if source_session.unit.lecturer_id != lecturer.id or target_session.unit.lecturer_id != lecturer.id:
-        return jsonify({'success': False, 'message': 'Access denied'}), 403
-    
-    action = request.form.get('action')  # 'confirm' or 'dismiss'
-    notes = request.form.get('notes', '').strip()
-    
-    if action == 'confirm':
-        match.verified_by_lecturer = True
-    elif action == 'dismiss':
-        match.verified_by_lecturer = False
-    else:
-        return jsonify({'success': False, 'message': 'Invalid action'}), 400
-    
-    match.verified_at = datetime.utcnow()
-    match.verified_by_user_id = current_user.id
-    match.notes = notes
-    
-    db.session.commit()
-    
-    log_activity('verify_photo_match', 'photo_match', match.id,
-                f'Match {match_id} verified as {action} by lecturer')
-    
-    return jsonify({'success': True, 'message': f'Match {action}ed successfully'})
+    try:
+        from models import PhotoMatch
+        
+        # Check if PhotoMatch table exists
+        try:
+            db.session.execute(text("SELECT 1 FROM photo_matches LIMIT 1"))
+        except:
+            return jsonify({'success': False, 'message': 'Fraud detection not set up. Please run database migration.'}), 400
+        
+        match = PhotoMatch.query.get_or_404(match_id)
+        
+        # Verify lecturer has access to this match
+        source_session = match.source_attendance.session
+        target_session = match.target_attendance.session
+        
+        if source_session.unit.lecturer_id != lecturer.id or target_session.unit.lecturer_id != lecturer.id:
+            return jsonify({'success': False, 'message': 'Access denied'}), 403
+        
+        action = request.form.get('action')  # 'confirm' or 'dismiss'
+        notes = request.form.get('notes', '').strip()
+        
+        if action == 'confirm':
+            match.verified_by_lecturer = True
+        elif action == 'dismiss':
+            match.verified_by_lecturer = False
+        else:
+            return jsonify({'success': False, 'message': 'Invalid action'}), 400
+        
+        match.verified_at = datetime.utcnow()
+        match.verified_by_user_id = current_user.id
+        match.notes = notes
+        
+        db.session.commit()
+        
+        log_activity('verify_photo_match', 'photo_match', match.id,
+                    f'Match {match_id} verified as {action} by lecturer')
+        
+        return jsonify({'success': True, 'message': f'Match {action}ed successfully'})
+    except Exception as e:
+        app.logger.error(f"Error verifying match: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 @app.route('/lecturer/export-attendance-csv/<int:session_id>')
 @lecturer_required
