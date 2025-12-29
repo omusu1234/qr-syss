@@ -108,6 +108,12 @@ class Attendance(db.Model):
     arrival_minutes_late = db.Column(db.Integer, nullable=True)  # Minutes late
     absence_reason = db.Column(db.Text, nullable=True)  # Reason for absence (if collected)
     photo_data = db.Column(db.Text, nullable=True)  # Base64 encoded photo of student
+    photo_hash = db.Column(db.String(64), nullable=True)  # Perceptual hash for duplicate detection
+    face_encoding = db.Column(db.Text, nullable=True)  # JSON encoded face encoding for face matching
+    
+    # Relationships
+    photo_matches_as_source = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.source_attendance_id', backref='source_attendance', lazy=True)
+    photo_matches_as_target = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.target_attendance_id', backref='target_attendance', lazy=True)
     
     # Unique constraint to prevent duplicate submissions
     __table_args__ = (db.UniqueConstraint('session_id', 'admission_no', name='unique_session_admission'),)
@@ -173,5 +179,31 @@ class LoginHistory(db.Model):
     __table_args__ = (
         db.Index('idx_login_user', 'user_id'),
         db.Index('idx_login_at', 'login_at'),
+    )
+
+class PhotoMatch(db.Model):
+    """Track detected photo matches (duplicates or similar faces)"""
+    __tablename__ = 'photo_matches'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    source_attendance_id = db.Column(db.Integer, db.ForeignKey('attendances.id'), nullable=False)
+    target_attendance_id = db.Column(db.Integer, db.ForeignKey('attendances.id'), nullable=False)
+    match_type = db.Column(db.String(20), nullable=False)  # 'duplicate' or 'face_similar'
+    similarity_score = db.Column(db.Float, nullable=True)  # 0-1 for face similarity, None for exact duplicates
+    detected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    verified_by_lecturer = db.Column(db.Boolean, nullable=True)  # None = not reviewed, True = confirmed, False = false positive
+    verified_at = db.Column(db.DateTime, nullable=True)
+    verified_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    notes = db.Column(db.Text, nullable=True)  # Lecturer's notes about the match
+    
+    # Relationship to verifying user
+    verified_by = db.relationship('User', foreign_keys=[verified_by_user_id], backref='verified_matches')
+    
+    # Indexes
+    __table_args__ = (
+        db.Index('idx_match_source', 'source_attendance_id'),
+        db.Index('idx_match_target', 'target_attendance_id'),
+        db.Index('idx_match_verified', 'verified_by_lecturer'),
+        db.UniqueConstraint('source_attendance_id', 'target_attendance_id', name='unique_photo_match'),
     )
 

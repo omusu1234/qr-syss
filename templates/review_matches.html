@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}Review Photo Matches - {{ session.session_name }}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-shield-check"></i> Review Photo Matches
+</h2>
+
+<div class="mb-3">
+    <a href="{{ url_for('view_attendance', session_id=session.id) }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Attendance
+    </a>
+    <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-house"></i> Dashboard
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">{{ session.session_name }}</h5>
+        <p class="card-text mb-0">
+            <strong>Unit:</strong> {{ session.unit.unit_code }} - {{ session.unit.unit_name }}
+        </p>
+    </div>
+</div>
+
+<!-- Unverified Matches -->
+{% if unverified_matches %}
+<div class="card mb-4 border-warning">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">
+            <i class="bi bi-exclamation-triangle"></i> Unverified Matches ({{ unverified_matches|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Review these detected matches and verify if they represent fraud or are false positives.
+        </p>
+        
+        {% for match in unverified_matches %}
+        <div class="card mb-3 border-{% if match.match_type == 'duplicate' %}danger{% else %}warning{% endif %}">
+            <div class="card-body">
+                <div class="row">
+                    <!-- Source Attendance -->
+                    <div class="col-md-5">
+                        <h6 class="text-primary mb-3">
+                            <i class="bi bi-person"></i> Student 1
+                        </h6>
+                        <div class="text-center mb-3">
+                            {% if match.source_attendance.photo_data %}
+                            <img src="{{ match.source_attendance.photo_data }}" 
+                                 alt="Photo" 
+                                 class="img-fluid rounded border" 
+                                 style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                            {% else %}
+                            <div class="bg-light p-4 rounded">
+                                <i class="bi bi-camera-off text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted">No photo</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="text-center">
+                            <strong>{{ match.source_attendance.student_name }}</strong><br>
+                            <code>{{ match.source_attendance.admission_no }}</code><br>
+                            <small class="text-muted">
+                                {{ (match.source_attendance.submitted_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                                IP: {{ match.source_attendance.ip_address or 'N/A' }}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Match Info -->
+                    <div class="col-md-2 text-center d-flex flex-column justify-content-center">
+                        <div class="mb-3">
+                            {% if match.match_type == 'duplicate' %}
+                            <span class="badge bg-danger fs-6">
+                                <i class="bi bi-files"></i><br>Duplicate<br>Photo
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark fs-6">
+                                <i class="bi bi-person-check"></i><br>Similar<br>Face
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if match.similarity_score %}
+                        <div class="mb-2">
+                            <strong>{{ "%.0f"|format(match.similarity_score * 100) }}%</strong><br>
+                            <small class="text-muted">Similarity</small>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <small class="text-muted">
+                                Detected:<br>
+                                {{ (match.detected_at|localtime).strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Target Attendance -->
+                    <div class="col-md-5">
+                        <h6 class="text-danger mb-3">
+                            <i class="bi bi-person"></i> Student 2
+                        </h6>
+                        <div class="text-center mb-3">
+                            {% if match.target_attendance.photo_data %}
+                            <img src="{{ match.target_attendance.photo_data }}" 
+                                 alt="Photo" 
+                                 class="img-fluid rounded border" 
+                                 style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                            {% else %}
+                            <div class="bg-light p-4 rounded">
+                                <i class="bi bi-camera-off text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted">No photo</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="text-center">
+                            <strong>{{ match.target_attendance.student_name }}</strong><br>
+                            <code>{{ match.target_attendance.admission_no }}</code><br>
+                            <small class="text-muted">
+                                {{ (match.target_attendance.submitted_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}<br>
+                                IP: {{ match.target_attendance.ip_address or 'N/A' }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Verification Actions -->
+                <form class="verify-match-form" data-match-id="{{ match.id }}">
+                    <div class="mb-3">
+                        <label for="notes{{ match.id }}" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="notes{{ match.id }}" name="notes" rows="2" 
+                                  placeholder="Add any notes about this match..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="confirm" class="btn btn-danger flex-fill">
+                            <i class="bi bi-check-circle"></i> Confirm Fraud
+                        </button>
+                        <button type="submit" name="action" value="dismiss" class="btn btn-success flex-fill">
+                            <i class="bi bi-x-circle"></i> Dismiss (False Positive)
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-success">
+    <i class="bi bi-check-circle"></i> No unverified matches found. All clear!
+</div>
+{% endif %}
+
+<!-- Verified Matches -->
+{% if verified_matches %}
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">
+            <i class="bi bi-check-circle"></i> Verified Matches ({{ verified_matches|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Student 1</th>
+                        <th>Student 2</th>
+                        <th>Match Type</th>
+                        <th>Similarity</th>
+                        <th>Status</th>
+                        <th>Verified By</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for match in verified_matches %}
+                    <tr>
+                        <td>
+                            <strong>{{ match.source_attendance.student_name }}</strong><br>
+                            <code>{{ match.source_attendance.admission_no }}</code>
+                        </td>
+                        <td>
+                            <strong>{{ match.target_attendance.student_name }}</strong><br>
+                            <code>{{ match.target_attendance.admission_no }}</code>
+                        </td>
+                        <td>
+                            {% if match.match_type == 'duplicate' %}
+                            <span class="badge bg-danger">Duplicate</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Similar Face</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if match.similarity_score %}
+                            {{ "%.0f"|format(match.similarity_score * 100) }}%
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if match.verified_by_lecturer %}
+                            <span class="badge bg-danger">Confirmed Fraud</span>
+                            {% else %}
+                            <span class="badge bg-success">Dismissed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small>
+                                {{ match.verified_by.username }}<br>
+                                {{ (match.verified_at|localtime).strftime('%Y-%m-%d %H:%M') }}
+                            </small>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ match.notes or '-' }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Handle match verification
+document.querySelectorAll('.verify-match-form').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const matchId = this.dataset.matchId;
+        const formData = new FormData(this);
+        const action = formData.get('action');
+        const notes = formData.get('notes');
+        
+        const submitBtn = this.querySelector(`button[value="${action}"]`);
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+        
+        try {
+            const response = await fetch(`{{ url_for('verify_photo_match', match_id=0) }}`.replace('0', matchId), {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${action === 'confirm' ? 'danger' : 'success'} alert-dismissible fade show`;
+                alertDiv.innerHTML = `
+                    <i class="bi bi-check-circle"></i> ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                this.parentElement.insertBefore(alertDiv, this);
+                
+                // Remove the card after a delay
+                setTimeout(() => {
+                    this.closest('.card').style.transition = 'opacity 0.5s';
+                    this.closest('.card').style.opacity = '0';
+                    setTimeout(() => {
+                        this.closest('.card').remove();
+                        // Reload page if no more unverified matches
+                        if (document.querySelectorAll('.verify-match-form').length === 0) {
+                            setTimeout(() => window.location.reload(), 1000);
+                        }
+                    }, 500);
+                }, 2000);
+            } else {
+                alert('Error: ' + data.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+});
+</script>
+{% endblock %}
+

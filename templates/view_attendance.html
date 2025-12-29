@@ -27,6 +27,25 @@
     </div>
 </div>
 
+{% if unverified_matches_count > 0 %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h5 class="alert-heading">
+        <i class="bi bi-exclamation-triangle"></i> Fraud Detection Alert
+    </h5>
+    <p class="mb-2">
+        <strong>{{ unverified_matches_count }}</strong> potential fraud case(s) detected requiring your review.
+        The system found duplicate photos or similar faces across different student submissions.
+    </p>
+    <hr>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('review_photo_matches', session_id=session.id) }}" class="btn btn-warning">
+            <i class="bi bi-shield-check"></i> Review Matches
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</div>
+{% endif %}
+
 <div class="card mb-3">
     <div class="card-body">
         <form method="GET" action="{{ url_for('view_attendance', session_id=session.id) }}" class="row g-3">
@@ -161,7 +180,9 @@
             {% for attendance in attendances %}
             {% set ip_count = attendances|selectattr("ip_address", "equalto", attendance.ip_address)|list|length %}
             {% set same_ip = ip_count > 1 %}
-            <tr {% if same_ip %}class="table-warning" title="Multiple submissions from same IP address"{% endif %}>
+            {% set fraud_matches_for_this = fraud_map.get(attendance.id, []) %}
+            {% set has_fraud = fraud_matches_for_this|length > 0 %}
+            <tr {% if same_ip or has_fraud %}class="table-warning" title="{% if same_ip %}Multiple submissions from same IP address. {% endif %}{% if has_fraud %}Fraud detection alert: Similar/duplicate photo detected.{% endif %}"{% endif %}>
                 <td>{{ loop.index }}</td>
                 <td><strong>{{ attendance.admission_no }}</strong></td>
                 <td>{{ attendance.student_name }}</td>
@@ -320,9 +341,24 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if same_ip %}
+                    {% if has_fraud %}
+                        {% for match in fraud_matches_for_this %}
+                            {% if match.match_type == 'duplicate' %}
+                            <span class="badge bg-danger mb-1 d-block" title="Exact duplicate photo detected">
+                                <i class="bi bi-files"></i> Duplicate Photo
+                            </span>
+                            {% elif match.match_type == 'face_similar' %}
+                            <span class="badge bg-warning text-dark mb-1 d-block" title="Similar face detected ({{ "%.0f"|format(match.similarity_score * 100) }}% similarity)">
+                                <i class="bi bi-person-check"></i> Similar Face ({{ "%.0f"|format(match.similarity_score * 100) }}%)
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                        <a href="{{ url_for('review_photo_matches', session_id=session.id) }}" class="btn btn-sm btn-outline-danger mt-1">
+                            <i class="bi bi-eye"></i> Review
+                        </a>
+                    {% elif same_ip %}
                     <span class="badge bg-warning text-dark" title="{{ ip_count }} submission(s) from this IP">
-                        <i class="bi bi-exclamation-triangle"></i> Check
+                        <i class="bi bi-exclamation-triangle"></i> Same IP
                     </span>
                     {% else %}
                     <span class="badge bg-secondary">OK</span>
