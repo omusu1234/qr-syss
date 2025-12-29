@@ -3,52 +3,37 @@
 {% block title %}Notification - {{ notification.title }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0"><i class="bi bi-bell"></i> Notification Details</h2>
-    <a href="{{ url_for('view_notifications') }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Notifications
-    </a>
-</div>
-
-<div class="card shadow-lg">
-    <div class="card-header">
-        <h4 class="mb-0 text-white">{{ notification.title }}</h4>
+<div class="card">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">{{ notification.title }}</h4>
+            <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
     </div>
     <div class="card-body">
-        <div class="mb-4 p-3 bg-light rounded">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-calendar text-primary me-2"></i>
-                        <small class="text-muted">
-                            <strong>Date:</strong> {{ (notification.created_at|localtime).strftime('%B %d, %Y at %I:%M %p') }}
-                        </small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-person text-info me-2"></i>
-                        <small class="text-muted">
-                            <strong>From:</strong> {{ notification.sender.username }}
-                        </small>
-                    </div>
-                </div>
-            </div>
+        <div class="mb-3">
+            <small class="text-muted">
+                <i class="bi bi-calendar"></i> {{ (notification.created_at|localtime).strftime('%B %d, %Y at %I:%M %p') }}
+            </small>
+            <br>
+            <small class="text-muted">
+                <i class="bi bi-person"></i> From: <strong>{{ notification.sender.username }}</strong>
+            </small>
         </div>
         
-        <div class="notification-content p-3">
-            <p style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.8; color: #2c3e50;">{{ notification.message }}</p>
+        <div class="notification-content">
+            <p style="white-space: pre-wrap; font-size: 1.1rem; line-height: 1.6;">{{ notification.message }}</p>
         </div>
     </div>
-    <div class="card-footer bg-light">
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('view_notifications') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-list"></i> All Notifications
-            </a>
-            <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-primary">
-                <i class="bi bi-house"></i> Dashboard
-            </a>
-        </div>
+    <div class="card-footer">
+        <a href="{{ url_for('view_notifications') }}" class="btn btn-secondary">
+            <i class="bi bi-list"></i> All Notifications
+        </a>
+        <a href="{{ url_for('lecturer_dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-house"></i> Dashboard
+        </a>
     </div>
 </div>
 {% endblock %}

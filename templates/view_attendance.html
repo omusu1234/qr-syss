@@ -2,104 +2,32 @@
 
 {% block title %}View Attendance - {{ session.session_name }}{% endblock %}
 
-{% block extra_css %}
-<style>
-    .session-info-card {
-        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
-        color: white;
-        border-radius: var(--border-radius-lg);
-    }
-    .session-info-card h5 {
-        color: white;
-    }
-    .stat-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: var(--border-radius);
-        margin: 0.25rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0">
-        <i class="bi bi-list-check"></i> Attendance Records
-    </h2>
-    <a href="{{ url_for('lecturer_sessions') }}" class="btn btn-outline-primary">
-        <i class="bi bi-arrow-left"></i> Back to Sessions
-    </a>
-</div>
+<h2 class="mb-4">
+    <i class="bi bi-list-check"></i> Attendance Records
+</h2>
 
-<div class="card session-info-card mb-4 shadow-lg">
+<div class="card mb-4">
     <div class="card-body">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <h5 class="card-title mb-3">{{ session.session_name }}</h5>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="stat-badge">
-                            <i class="bi bi-book"></i> <strong>Unit:</strong> {{ session.unit.unit_code }} - {{ session.unit.unit_name }}
-                        </div>
-                    </div>
-                    {% if session.hall_name %}
-                    <div class="col-md-6">
-                        <div class="stat-badge">
-                            <i class="bi bi-building"></i> <strong>Hall:</strong> {{ session.hall_name }}
-                        </div>
-                    </div>
-                    {% endif %}
-                    <div class="col-md-6">
-                        <div class="stat-badge">
-                            <i class="bi bi-geo-alt"></i> <strong>Radius:</strong> {{ session.location_radius or 100 }}m
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-badge">
-                            <i class="bi bi-calendar"></i> <strong>Created:</strong> {{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="stat-badge">
-                            <strong>Status:</strong> 
-                            {% if session.is_active %}
-                                <span class="badge bg-light text-success">Active</span>
-                            {% else %}
-                                <span class="badge bg-light text-danger">Expired</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 text-end">
-                <div class="btn-group-vertical w-100">
-                    <a href="{{ url_for('view_session_qr', session_id=session.id) }}" class="btn btn-light mb-2">
-                        <i class="bi bi-qr-code"></i> View QR Code
-                    </a>
-                    <div class="dropdown">
-                        <button class="btn btn-light dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-download"></i> Export
-                        </button>
-                        <ul class="dropdown-menu w-100">
-                            <li><a class="dropdown-item" href="{{ url_for('export_attendance_csv', session_id=session.id) }}">
-                                <i class="bi bi-filetype-csv"></i> Export to CSV
-                            </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('export_attendance_pdf', session_id=session.id) }}">
-                                <i class="bi bi-file-earmark-pdf"></i> Export to PDF
-                            </a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <h5 class="card-title">{{ session.session_name }}</h5>
+        <p class="card-text">
+            <strong>Unit:</strong> {{ session.unit.unit_code }} - {{ session.unit.unit_name }}<br>
+            {% if session.hall_name %}
+            <strong>Hall:</strong> {{ session.hall_name }}<br>
+            {% endif %}
+            <strong>Location Radius:</strong> {{ session.location_radius or 100 }} meters<br>
+            <strong>Created:</strong> {{ (session.created_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}<br>
+            <strong>Status:</strong> 
+            {% if session.is_active %}
+                <span class="badge bg-success">Active</span>
+            {% else %}
+                <span class="badge bg-danger">Expired</span>
+            {% endif %}
+        </p>
     </div>
 </div>
 
-<div class="card shadow-md mb-4">
-    <div class="card-header">
-        <h5 class="mb-0 text-white"><i class="bi bi-funnel"></i> Search & Filter</h5>
-    </div>
+<div class="card mb-3">
     <div class="card-body">
         <form method="GET" action="{{ url_for('view_attendance', session_id=session.id) }}" class="row g-3">
             <div class="col-md-3">
@@ -161,37 +89,28 @@
 </div>
 
 <!-- Quick Stats -->
-<div class="row g-3 mb-4">
+<div class="row mb-3">
     <div class="col-md-4">
-        <div class="card border-primary h-100 shadow-sm">
+        <div class="card border-primary">
             <div class="card-body text-center">
-                <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                    <i class="bi bi-list-check text-primary" style="font-size: 2rem;"></i>
-                </div>
-                <h3 class="text-primary mb-0 fw-bold">{{ total_count }}</h3>
-                <small class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Total Records</small>
+                <h5 class="text-primary mb-0">{{ total_count }}</h5>
+                <small class="text-muted">Total Records</small>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-success h-100 shadow-sm">
+        <div class="card border-success">
             <div class="card-body text-center">
-                <div class="bg-success bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                    <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
-                </div>
-                <h3 class="text-success mb-0 fw-bold">{{ on_time_count }}</h3>
-                <small class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">On Time</small>
+                <h5 class="text-success mb-0">{{ on_time_count }}</h5>
+                <small class="text-muted">On Time</small>
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="card border-warning h-100 shadow-sm">
+        <div class="card border-warning">
             <div class="card-body text-center">
-                <div class="bg-warning bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                    <i class="bi bi-clock-history text-warning" style="font-size: 2rem;"></i>
-                </div>
-                <h3 class="text-warning mb-0 fw-bold">{{ late_count }}</h3>
-                <small class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Late Arrivals</small>
+                <h5 class="text-warning mb-0">{{ late_count }}</h5>
+                <small class="text-muted">Late Arrivals</small>
             </div>
         </div>
     </div>
@@ -223,24 +142,19 @@
 </div>
 
 {% if attendances %}
-<div class="card shadow-md">
-    <div class="card-header">
-        <h5 class="mb-0 text-white"><i class="bi bi-table"></i> Attendance Records</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive" style="max-height: 75vh; overflow-y: auto; overflow-x: auto;">
-            <table class="table table-hover mb-0">
-                <thead class="table-light" style="position: sticky; top: 0; z-index: 10; background: linear-gradient(135deg, #0066cc 0%, #003366 100%) !important; color: white;">
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
             <tr>
-                <th style="width: 4%; min-width: 40px;">#</th>
-                <th style="width: 15%; min-width: 120px;">Admission Number</th>
-                <th style="width: 25%; min-width: 180px;">Student Name</th>
-                <th style="width: 20%; min-width: 160px;">Submitted At</th>
-                <th style="width: 18%; min-width: 130px;">Location</th>
-                <th style="width: 10%; min-width: 100px;">IP Address</th>
-                <th style="width: 8%; min-width: 80px;">Status</th>
-                <th style="width: 8%; min-width: 100px;">Photo</th>
-                <th style="width: 8%; min-width: 80px;">Flag</th>
+                <th>#</th>
+                <th>Admission Number</th>
+                <th>Student Name</th>
+                <th>Submitted At</th>
+                <th>Location</th>
+                <th>IP Address</th>
+                <th>Status</th>
+                <th>Photo</th>
+                <th>Flag</th>
             </tr>
         </thead>
         <tbody>

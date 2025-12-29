@@ -5,11 +5,18 @@
 {% block content %}
 <div class="text-center">
     {% if is_expired %}
-    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px;">
-        <div class="card-header bg-danger">
-            <h2 class="mb-0 text-white"><i class="bi bi-x-circle"></i> Session Expired</h2>
-        </div>
+    <h2 class="mb-4"><i class="bi bi-x-circle text-danger"></i> Session Expired</h2>
+    {% else %}
+    <h2 class="mb-4"><i class="bi bi-check-circle text-success"></i> QR Code Generated Successfully!</h2>
+    {% endif %}
+    
+    <div class="card mx-auto" style="max-width: 400px;">
         <div class="card-body">
+            <h5 class="card-title">{{ session.session_name }}</h5>
+            <p class="text-muted">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</p>
+            
+            {% if is_expired %}
+            <!-- Session Expired - Hide QR Code -->
             <div class="mb-3 p-4 border border-danger rounded" style="background-color: #f8d7da;">
                 <i class="bi bi-x-circle text-danger" style="font-size: 4rem;"></i>
                 <h4 class="text-danger mt-3">Session Expired</h4>
@@ -21,20 +28,7 @@
             <div class="alert alert-danger">
                 <i class="bi bi-exclamation-triangle"></i> <strong>This QR code cannot be used for attendance.</strong> Please create a new session if you need to take attendance.
             </div>
-            <a href="{{ url_for('create_session') }}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Create New Session
-            </a>
-        </div>
-    </div>
-    {% else %}
-    <div class="card shadow-lg mx-auto mb-4" style="max-width: 500px;">
-        <div class="card-header bg-success">
-            <h2 class="mb-0 text-white"><i class="bi bi-check-circle"></i> QR Code Generated Successfully!</h2>
-        </div>
-        <div class="card-body">
-            <h5 class="card-title mb-3">{{ session.session_name }}</h5>
-            <p class="text-muted mb-4">{{ session.unit.unit_code }} - {{ session.unit.unit_name }}</p>
-            
+            {% else %}
             <!-- Active Session - Show QR Code -->
             <div class="mb-3">
                 <img src="data:image/png;base64,{{ session.qr_code_data }}" 
