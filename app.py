@@ -886,10 +886,22 @@ def submit_attendance():
     from photo_analysis import calculate_photo_hash, extract_face_encoding, analyze_photo_for_fraud
     
     photo_hash = calculate_photo_hash(photo_data)
-    face_encoding = extract_face_encoding(photo_data)
+    face_encoding = None
+    fraud_matches = {'duplicates': [], 'similar_faces': []}
     
-    # Detect matches before saving
-    fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
+    try:
+        face_encoding = extract_face_encoding(photo_data)
+        # Detect matches before saving
+        fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
+    except Exception as e:
+        # If face recognition fails, still do duplicate detection
+        app.logger.warning(f"Face recognition not available, using duplicate detection only: {str(e)}")
+        # Still check for duplicates even if face recognition fails
+        try:
+            fraud_matches = analyze_photo_for_fraud(photo_data, session_obj.id)
+        except Exception as e2:
+            app.logger.error(f"Photo analysis failed: {str(e2)}")
+            fraud_matches = {'duplicates': [], 'similar_faces': []}
     
     # Create attendance record
     attendance = Attendance(

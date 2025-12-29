@@ -11,12 +11,16 @@ import imagehash
 import numpy as np
 
 # Try to import face_recognition, but make it optional
+# Note: face_recognition requires dlib which has complex system dependencies
+# It's recommended to use this only on systems where dlib can be properly installed
+FACE_RECOGNITION_AVAILABLE = False
 try:
     import face_recognition
     FACE_RECOGNITION_AVAILABLE = True
 except ImportError:
-    FACE_RECOGNITION_AVAILABLE = False
-    print("Warning: face_recognition library not available. Face matching will be disabled.")
+    # Silently fail - face recognition is optional
+    # Duplicate photo detection will still work
+    pass
 
 
 def decode_base64_image(base64_string):
