@@ -83,6 +83,7 @@ CREATE TABLE attendances (
     is_late BOOLEAN DEFAULT FALSE,
     arrival_minutes_late INTEGER,
     absence_reason TEXT,
+    photo_data TEXT,
     UNIQUE(session_id, admission_no)
 );
 

@@ -107,6 +107,7 @@ class Attendance(db.Model):
     is_late = db.Column(db.Boolean, default=False)  # Late arrival tracking
     arrival_minutes_late = db.Column(db.Integer, nullable=True)  # Minutes late
     absence_reason = db.Column(db.Text, nullable=True)  # Reason for absence (if collected)
+    photo_data = db.Column(db.Text, nullable=True)  # Base64 encoded photo of student
     
     # Unique constraint to prevent duplicate submissions
     __table_args__ = (db.UniqueConstraint('session_id', 'admission_no', name='unique_session_admission'),)

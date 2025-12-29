@@ -698,12 +698,18 @@ def submit_attendance():
     student_name = data.get('student_name')
     latitude = data.get('latitude')
     longitude = data.get('longitude')
+    photo_data = data.get('photo')  # Base64 encoded photo
     
     app.logger.info(f"Received data - Token: {token[:20]}..., Admission: {admission_no}, Name: {student_name}")
     app.logger.info(f"Received coordinates - Lat: {latitude}, Lng: {longitude}")
+    app.logger.info(f"Photo data received: {'Yes' if photo_data else 'No'}")
     
     if not all([token, admission_no, student_name, latitude, longitude]):
         return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+    
+    # Photo is now required for attendance submission
+    if not photo_data:
+        return jsonify({'success': False, 'message': 'Photo is required. Please capture your photo before submitting.'}), 400
     
     # Validate and convert coordinates
     try:
@@ -885,7 +891,8 @@ def submit_attendance():
         submission_longitude=longitude,
         ip_address=get_client_ip(),
         is_late=is_late,
-        arrival_minutes_late=arrival_minutes_late
+        arrival_minutes_late=arrival_minutes_late,
+        photo_data=photo_data  # Store base64 encoded photo
     )
     
     db.session.add(attendance)
@@ -903,7 +910,8 @@ def submit_attendance():
         'submission_latitude': attendance.submission_latitude,
         'submission_longitude': attendance.submission_longitude,
         'submitted_at': attendance.submitted_at,
-        'ip_address': attendance.ip_address
+        'ip_address': attendance.ip_address,
+        'photo_data': attendance.photo_data  # Include photo in sync
     }
     # Sync to additional databases (non-blocking)
     try:

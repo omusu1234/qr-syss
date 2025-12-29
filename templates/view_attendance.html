@@ -239,6 +239,7 @@
                 <th style="width: 18%; min-width: 130px;">Location</th>
                 <th style="width: 10%; min-width: 100px;">IP Address</th>
                 <th style="width: 8%; min-width: 80px;">Status</th>
+                <th style="width: 8%; min-width: 100px;">Photo</th>
                 <th style="width: 8%; min-width: 80px;">Flag</th>
             </tr>
         </thead>
@@ -271,6 +272,32 @@
                     <span class="badge bg-success">
                         <i class="bi bi-check-circle"></i> On Time
                     </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if attendance.photo_data %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#photoModal{{ attendance.id }}">
+                        <i class="bi bi-camera"></i> View
+                    </button>
+                    <!-- Photo Modal -->
+                    <div class="modal fade" id="photoModal{{ attendance.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Student Photo - {{ attendance.student_name }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body text-center">
+                                    <img src="{{ attendance.photo_data }}" alt="Student Photo" class="img-fluid rounded" style="max-height: 70vh;">
+                                    <p class="mt-3 text-muted">
+                                        <small>Admission: {{ attendance.admission_no }} | Submitted: {{ (attendance.submitted_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <span class="text-muted"><small>No photo</small></span>
                     {% endif %}
                 </td>
                 <td>

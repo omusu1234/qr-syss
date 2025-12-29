@@ -43,6 +43,15 @@
         .status-warning {
             background-color: #ffc107;
         }
+
+        #video, #capturedPhoto {
+            max-width: 100%;
+            border-radius: 10px;
+        }
+
+        #video {
+            background: #000;
+        }
     </style>
 </head>
 
@@ -86,6 +95,34 @@
                     placeholder="Enter your full name" required autocomplete="off">
             </div>
 
+            <!-- Photo Capture Section (shown after location is verified) -->
+            <div id="photoSection" class="mb-3" style="display: none;">
+                <label class="form-label">
+                    <i class="bi bi-camera"></i> Take Your Photo
+                </label>
+                <div class="text-center mb-2">
+                    <video id="video" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 10px; display: none;"></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div id="photoPreview" style="display: none;">
+                        <img id="capturedPhoto" src="" alt="Captured Photo" style="max-width: 100%; border-radius: 10px; border: 2px solid #667eea;">
+                    </div>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="startCameraBtn">
+                        <i class="bi bi-camera-video"></i> Start Camera
+                    </button>
+                    <button type="button" class="btn btn-success" id="capturePhotoBtn" style="display: none;">
+                        <i class="bi bi-camera-fill"></i> Capture Photo
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="retakePhotoBtn" style="display: none;">
+                        <i class="bi bi-arrow-clockwise"></i> Retake Photo
+                    </button>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    <i class="bi bi-info-circle"></i> Please ensure your face is clearly visible in the photo.
+                </small>
+            </div>
+
             <button type="submit" class="btn btn-primary w-100" id="submitBtn" disabled>
                 <i class="bi bi-check-circle"></i> Submit Attendance
             </button>
@@ -97,6 +134,8 @@
     <script>
         let currentLatitude = null;
         let currentLongitude = null;
+        let capturedPhotoData = null; // Base64 encoded photo
+        let stream = null; // Camera stream
         
         const lectureLat = {{ session.lecture_hall_latitude }};
         const lectureLng = {{ session.lecture_hall_longitude }};
@@ -245,7 +284,9 @@
                     <strong>Location Verified!</strong> You are within range.${accuracyBadge}<br>
                     <small>GPS Accuracy: ±${Math.round(finalAccuracy)}m${readingsInfo} | Distance: ${Math.round(distance)}m</small>
                 `;
-                submitBtn.disabled = false;
+                // Show photo section after location is verified
+                document.getElementById('photoSection').style.display = 'block';
+                submitBtn.disabled = true; // Disable until photo is captured
             } else {
                 statusDiv.className = 'alert alert-danger';
                 statusDiv.innerHTML = `
@@ -467,12 +508,95 @@
             getCurrentLocation();
         });
         
+        // Camera Functions
+        async function startCamera() {
+            try {
+                const video = document.getElementById('video');
+                const startBtn = document.getElementById('startCameraBtn');
+                const captureBtn = document.getElementById('capturePhotoBtn');
+                
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user', // Front camera
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } 
+                });
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                startBtn.style.display = 'none';
+                captureBtn.style.display = 'block';
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                alert('Unable to access camera. Please ensure camera permissions are granted and try again.');
+            }
+        }
+        
+        function capturePhoto() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const photoPreview = document.getElementById('photoPreview');
+            const capturedPhoto = document.getElementById('capturedPhoto');
+            const captureBtn = document.getElementById('capturePhotoBtn');
+            const retakeBtn = document.getElementById('retakePhotoBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // Convert to base64
+            capturedPhotoData = canvas.toDataURL('image/jpeg', 0.8);
+            capturedPhoto.src = capturedPhotoData;
+            
+            // Stop camera stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            video.style.display = 'none';
+            photoPreview.style.display = 'block';
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'block';
+            submitBtn.disabled = false; // Enable submit button after photo is captured
+        }
+        
+        function retakePhoto() {
+            const video = document.getElementById('video');
+            const photoPreview = document.getElementById('photoPreview');
+            const captureBtn = document.getElementById('capturePhotoBtn');
+            const retakeBtn = document.getElementById('retakePhotoBtn');
+            const startBtn = document.getElementById('startCameraBtn');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            capturedPhotoData = null;
+            photoPreview.style.display = 'none';
+            retakeBtn.style.display = 'none';
+            submitBtn.disabled = true;
+            
+            // Restart camera
+            startCamera();
+        }
+        
+        // Camera button event listeners
+        document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+        document.getElementById('capturePhotoBtn').addEventListener('click', capturePhoto);
+        document.getElementById('retakePhotoBtn').addEventListener('click', retakePhoto);
+        
         // Form Submission
         document.getElementById('attendanceForm').addEventListener('submit', async function (e) {
             e.preventDefault();
         
             if (!currentLatitude || !currentLongitude) {
                 alert('Location not verified yet.');
+                return;
+            }
+            
+            if (!capturedPhotoData) {
+                alert('Please capture your photo before submitting.');
                 return;
             }
         
@@ -485,7 +609,8 @@
                 admission_no: document.getElementById('admission_no').value,
                 student_name: document.getElementById('student_name').value,
                 latitude: currentLatitude,
-                longitude: currentLongitude
+                longitude: currentLongitude,
+                photo: capturedPhotoData // Include photo data
             };
         
             try {

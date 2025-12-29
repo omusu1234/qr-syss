@@ -115,14 +115,15 @@ class DatabaseSync:
                     sql = """
                         INSERT INTO attendances 
                         (session_id, admission_no, student_name, submission_latitude, 
-                         submission_longitude, submitted_at, ip_address)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                         submission_longitude, submitted_at, ip_address, photo_data)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                         ON DUPLICATE KEY UPDATE
                         student_name=VALUES(student_name),
                         submission_latitude=VALUES(submission_latitude),
                         submission_longitude=VALUES(submission_longitude),
                         submitted_at=VALUES(submitted_at),
-                        ip_address=VALUES(ip_address)
+                        ip_address=VALUES(ip_address),
+                        photo_data=VALUES(photo_data)
                     """
                     cursor.execute(sql, (
                         attendance_data['session_id'],
@@ -131,7 +132,8 @@ class DatabaseSync:
                         attendance_data['submission_latitude'],
                         attendance_data['submission_longitude'],
                         attendance_data['submitted_at'],
-                        attendance_data.get('ip_address')
+                        attendance_data.get('ip_address'),
+                        attendance_data.get('photo_data')
                     ))
                     conn.commit()
                     synced_servers.append(server['config']['host'])
