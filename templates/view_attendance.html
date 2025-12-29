@@ -190,28 +190,133 @@
                 </td>
                 <td>
                     {% if attendance.photo_data %}
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#photoModal{{ attendance.id }}">
-                        <i class="bi bi-camera"></i> View
-                    </button>
-                    <!-- Photo Modal -->
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- Thumbnail Preview -->
+                        <img src="{{ attendance.photo_data }}" 
+                             alt="Student Photo" 
+                             class="rounded-circle border border-primary" 
+                             style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;"
+                             data-bs-toggle="modal" 
+                             data-bs-target="#photoModal{{ attendance.id }}"
+                             title="Click to view full photo">
+                        <!-- View Button -->
+                        <button type="button" 
+                                class="btn btn-sm btn-outline-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#photoModal{{ attendance.id }}">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                    </div>
+                    <!-- Enhanced Photo Modal -->
                     <div class="modal fade" id="photoModal{{ attendance.id }}" tabindex="-1">
-                        <div class="modal-dialog modal-lg">
+                        <div class="modal-dialog modal-xl modal-dialog-centered">
                             <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Student Photo - {{ attendance.student_name }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title">
+                                        <i class="bi bi-person-circle"></i> Student Photo Verification
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body text-center">
-                                    <img src="{{ attendance.photo_data }}" alt="Student Photo" class="img-fluid rounded" style="max-height: 70vh;">
-                                    <p class="mt-3 text-muted">
-                                        <small>Admission: {{ attendance.admission_no }} | Submitted: {{ (attendance.submitted_at|localtime).strftime('%Y-%m-%d %H:%M:%S') }}</small>
-                                    </p>
+                                <div class="modal-body p-4">
+                                    <div class="row">
+                                        <!-- Photo Display Section -->
+                                        <div class="col-md-8 text-center mb-3 mb-md-0">
+                                            <div class="position-relative d-inline-block">
+                                                <img id="photoImg{{ attendance.id }}" 
+                                                     src="{{ attendance.photo_data }}" 
+                                                     alt="Student Photo" 
+                                                     class="img-fluid rounded shadow-lg" 
+                                                     style="max-height: 75vh; max-width: 100%; cursor: zoom-in;"
+                                                     onclick="toggleZoom(this)">
+                                                <div class="position-absolute top-0 end-0 m-2">
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-light rounded-circle shadow" 
+                                                            onclick="downloadPhotoWithFeedback('{{ attendance.photo_data }}', '{{ attendance.student_name }}_{{ attendance.admission_no }}', 'downloadBtn{{ attendance.id }}'); return false;"
+                                                            title="Download Photo"
+                                                            id="downloadBtn{{ attendance.id }}">
+                                                        <i class="bi bi-download"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-secondary" 
+                                                        onclick="toggleZoom(document.getElementById('photoImg{{ attendance.id }}'))">
+                                                    <i class="bi bi-arrows-fullscreen"></i> Zoom
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-secondary" 
+                                                        onclick="rotatePhoto('photoImg{{ attendance.id }}')">
+                                                    <i class="bi bi-arrow-clockwise"></i> Rotate
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- Student Information Section -->
+                                        <div class="col-md-4">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-light">
+                                                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Student Information</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="mb-3">
+                                                        <strong><i class="bi bi-person"></i> Name:</strong>
+                                                        <p class="mb-0">{{ attendance.student_name }}</p>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong><i class="bi bi-card-text"></i> Admission No:</strong>
+                                                        <p class="mb-0"><code>{{ attendance.admission_no }}</code></p>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong><i class="bi bi-clock"></i> Submitted At:</strong>
+                                                        <p class="mb-0">
+                                                            <small>{{ (attendance.submitted_at|localtime).strftime('%B %d, %Y') }}</small><br>
+                                                            <small class="text-muted">{{ (attendance.submitted_at|localtime).strftime('%I:%M:%S %p') }}</small>
+                                                        </p>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong><i class="bi bi-geo-alt"></i> Location:</strong>
+                                                        <p class="mb-0">
+                                                            <small>
+                                                                {{ "%.6f"|format(attendance.submission_latitude) }},<br>
+                                                                {{ "%.6f"|format(attendance.submission_longitude) }}
+                                                            </small>
+                                                        </p>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <strong><i class="bi bi-globe"></i> IP Address:</strong>
+                                                        <p class="mb-0"><small class="text-muted">{{ attendance.ip_address or 'N/A' }}</small></p>
+                                                    </div>
+                                                    <div>
+                                                        <strong><i class="bi bi-check-circle"></i> Status:</strong>
+                                                        <p class="mb-0">
+                                                            {% if attendance.is_late %}
+                                                                <span class="badge bg-danger">
+                                                                    <i class="bi bi-clock"></i> Late ({{ attendance.arrival_minutes_late }}m)
+                                                                </span>
+                                                            {% else %}
+                                                                <span class="badge bg-success">
+                                                                    <i class="bi bi-check-circle"></i> On Time
+                                                                </span>
+                                                            {% endif %}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        <i class="bi bi-x-circle"></i> Close
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     {% else %}
-                    <span class="text-muted"><small>No photo</small></span>
+                    <span class="text-muted">
+                        <i class="bi bi-camera-off"></i> <small>No photo</small>
+                    </span>
                     {% endif %}
                 </td>
                 <td>
@@ -248,6 +353,117 @@ document.getElementById('searchAttendance')?.addEventListener('keyup', function(
     }
     
     document.getElementById('attendanceCount').textContent = visibleCount;
+});
+
+// Photo Zoom Functionality
+let zoomed = false;
+function toggleZoom(imgElement) {
+    if (!zoomed) {
+        imgElement.style.transform = 'scale(2)';
+        imgElement.style.transition = 'transform 0.3s ease';
+        imgElement.style.cursor = 'zoom-out';
+        imgElement.style.zIndex = '1000';
+        zoomed = true;
+    } else {
+        imgElement.style.transform = 'scale(1)';
+        imgElement.style.cursor = 'zoom-in';
+        imgElement.style.zIndex = 'auto';
+        zoomed = false;
+    }
+}
+
+// Photo Rotation Functionality
+let rotation = {};
+function rotatePhoto(imgId) {
+    const img = document.getElementById(imgId);
+    if (!img) return;
+    
+    if (!rotation[imgId]) {
+        rotation[imgId] = 0;
+    }
+    
+    rotation[imgId] += 90;
+    img.style.transform = `rotate(${rotation[imgId]}deg)`;
+    img.style.transition = 'transform 0.3s ease';
+    
+    // Reset zoom when rotating
+    if (zoomed) {
+        toggleZoom(img);
+    }
+}
+
+// Download Photo Functionality
+function downloadPhotoWithFeedback(base64Data, filename, buttonId) {
+    try {
+        // Handle both data URL format and raw base64
+        let base64String = base64Data;
+        if (base64Data.includes(',')) {
+            base64String = base64Data.split(',')[1];
+        }
+        
+        // Convert base64 to blob
+        const byteCharacters = atob(base64String);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/png' });
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename.replace(/[^a-z0-9]/gi, '_')}_${new Date().getTime()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Show success feedback
+        const btn = document.getElementById(buttonId);
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i>';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-light');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-light');
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error downloading photo:', error);
+        alert('Error downloading photo. Please try again.');
+    }
+}
+
+// Reset zoom when modal is closed
+document.addEventListener('hidden.bs.modal', function(event) {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        const imgs = modal.querySelectorAll('img[style*="transform"]');
+        imgs.forEach(img => {
+            img.style.transform = '';
+            img.style.cursor = 'zoom-in';
+            img.style.zIndex = 'auto';
+        });
+    });
+    zoomed = false;
+    rotation = {};
+});
+
+// Add loading state for images
+document.addEventListener('DOMContentLoaded', function() {
+    const images = document.querySelectorAll('img[src^="data:image"]');
+    images.forEach(img => {
+        img.addEventListener('load', function() {
+            this.style.opacity = '1';
+        });
+        img.style.opacity = '0.7';
+        img.style.transition = 'opacity 0.3s ease';
+    });
 });
 </script>
 <div class="mt-3 p-3 bg-light rounded">
