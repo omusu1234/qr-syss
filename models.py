@@ -111,10 +111,19 @@ class Attendance(db.Model):
     photo_hash = db.Column(db.String(64), nullable=True)  # Perceptual hash for duplicate detection (optional)
     face_encoding = db.Column(db.Text, nullable=True)  # JSON encoded face encoding for face matching (optional)
     
-    # Relationships to PhotoMatch (will be set up if PhotoMatch table exists)
-    # Note: These relationships are lazy-loaded, so they won't cause errors if table doesn't exist
-    photo_matches_as_source = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.source_attendance_id', backref='source_attendance', lazy=True, cascade='all, delete-orphan')
-    photo_matches_as_target = db.relationship('PhotoMatch', foreign_keys='PhotoMatch.target_attendance_id', backref='target_attendance', lazy=True, cascade='all, delete-orphan')
+    # Relationships to PhotoMatch (optional - only work if PhotoMatch table exists)
+    # These relationships are defined but won't cause errors if PhotoMatch table doesn't exist
+    # They're only accessed when fraud detection is enabled and table exists
+    photo_matches_as_source = db.relationship('PhotoMatch', 
+                                             foreign_keys='PhotoMatch.source_attendance_id', 
+                                             backref='source_attendance', 
+                                             lazy=True,
+                                             cascade='all, delete-orphan')
+    photo_matches_as_target = db.relationship('PhotoMatch', 
+                                             foreign_keys='PhotoMatch.target_attendance_id', 
+                                             backref='target_attendance', 
+                                             lazy=True,
+                                             cascade='all, delete-orphan')
     
     # Unique constraint to prevent duplicate submissions
     __table_args__ = (db.UniqueConstraint('session_id', 'admission_no', name='unique_session_admission'),)
