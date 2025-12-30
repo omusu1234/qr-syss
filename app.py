@@ -430,6 +430,145 @@ def lecturer_dashboard():
             'count': day_attendances
         })
     
+    # Today's stats
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    sessions_today = LectureSession.query.join(Unit).filter(
+        Unit.lecturer_id == lecturer.id,
+        LectureSession.created_at >= today_start,
+        LectureSession.created_at <= today_end
+    ).count()
+    
+    attendances_today = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids),
+        Attendance.submitted_at >= today_start,
+        Attendance.submitted_at <= today_end
+    ).count() if session_ids else 0
+    
+    late_today = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids),
+        Attendance.submitted_at >= today_start,
+        Attendance.submitted_at <= today_end,
+        Attendance.is_late == True
+    ).count() if session_ids else 0
+    
+    active_sessions_today = LectureSession.query.join(Unit).filter(
+        Unit.lecturer_id == lecturer.id,
+        LectureSession.is_active == True,
+        LectureSession.expires_at > datetime.utcnow()
+    ).order_by(LectureSession.expires_at.asc()).all()
+    
+    # Get active sessions with expiry info
+    active_sessions_list = []
+    for session in active_sessions_today:
+        remaining = session.expires_at - datetime.utcnow()
+        remaining_seconds = int(remaining.total_seconds())
+        expires_timestamp = int(session.expires_at.timestamp() * 1000)
+        
+        # Get attendance count for this session
+        session_attendance_count = Attendance.query.filter_by(session_id=session.id).count()
+        
+        active_sessions_list.append({
+            'id': session.id,
+            'name': session.session_name,
+            'unit_code': session.unit.unit_code,
+            'expires_at': session.expires_at,
+            'expires_timestamp': expires_timestamp,
+            'remaining_seconds': remaining_seconds,
+            'attendance_count': session_attendance_count
+        })
+    
+    # Fraud alerts (unverified PhotoMatch records)
+    fraud_alerts_count = 0
+    try:
+        from models import PhotoMatch
+        # Check if PhotoMatch table exists
+        if session_ids:
+            # Get attendance IDs for lecturer's sessions
+            attendance_ids = [a.id for a in db.session.query(Attendance.id).filter(
+                Attendance.session_id.in_(session_ids)
+            ).all()]
+            
+            if attendance_ids:
+                fraud_alerts_count = PhotoMatch.query.filter(
+                    ((PhotoMatch.source_attendance_id.in_(attendance_ids)) |
+                     (PhotoMatch.target_attendance_id.in_(attendance_ids))),
+                    PhotoMatch.verified_by_lecturer.is_(None)
+                ).count()
+    except Exception as e:
+        app.logger.debug(f"PhotoMatch table not available: {str(e)}")
+        fraud_alerts_count = 0
+    
+    # Recent activity (last 10 attendance submissions)
+    recent_activity = Attendance.query.filter(
+        Attendance.session_id.in_(session_ids)
+    ).order_by(Attendance.submitted_at.desc()).limit(10).all() if session_ids else []
+    
+    # At-risk students (students with attendance < 60% in last 30 days)
+    at_risk_students = []
+    if session_ids:
+        # Get all unique students
+        all_students = db.session.query(
+            Attendance.admission_no,
+            Attendance.student_name
+        ).filter(
+            Attendance.session_id.in_(session_ids)
+        ).distinct().all()
+        
+        # Get sessions in last 30 days
+        month_start = datetime.utcnow() - timedelta(days=30)
+        recent_sessions_ids = [s.id for s in all_sessions if s.created_at >= month_start]
+        
+        if recent_sessions_ids:
+            for admission_no, student_name in all_students:
+                # Count sessions student attended
+                attended_count = Attendance.query.filter(
+                    Attendance.session_id.in_(recent_sessions_ids),
+                    Attendance.admission_no == admission_no
+                ).count()
+                
+                # Count total sessions
+                total_recent_sessions = len(recent_sessions_ids)
+                
+                if total_recent_sessions > 0:
+                    attendance_percentage = (attended_count / total_recent_sessions) * 100
+                    if attendance_percentage < 60 and attended_count < total_recent_sessions:
+                        at_risk_students.append({
+                            'admission_no': admission_no,
+                            'name': student_name,
+                            'attended': attended_count,
+                            'total': total_recent_sessions,
+                            'percentage': round(attendance_percentage, 1)
+                        })
+            
+            # Sort by percentage (lowest first) and limit to 10
+            at_risk_students.sort(key=lambda x: x['percentage'])
+            at_risk_students = at_risk_students[:10]
+    
+    # Unit comparison data for chart
+    unit_comparison_data = []
+    for unit in units:
+        unit_sessions = [s for s in all_sessions if s.unit_id == unit.id]
+        unit_session_ids = [s.id for s in unit_sessions]
+        unit_attendances = Attendance.query.filter(
+            Attendance.session_id.in_(unit_session_ids)
+        ).count() if unit_session_ids else 0
+        unit_attendance_rate = 0
+        if len(unit_sessions) > 0:
+            unit_attendance_rate = round((unit_attendances / len(unit_sessions)), 1)
+        
+        unit_comparison_data.append({
+            'unit_code': unit.unit_code,
+            'unit_name': unit.unit_name,
+            'sessions': len(unit_sessions),
+            'attendances': unit_attendances,
+            'attendance_rate': unit_attendance_rate
+        })
+    
+    # Sort by attendance rate (highest first)
+    unit_comparison_data.sort(key=lambda x: x['attendance_rate'], reverse=True)
+    
     stats = {
         'total_sessions': total_sessions,
         'active_sessions': active_sessions,
@@ -440,7 +579,15 @@ def lecturer_dashboard():
         'attendances_this_month': attendances_this_month,
         'late_count': late_count,
         'attendance_rate': attendance_rate,
-        'chart_data': chart_data
+        'chart_data': chart_data,
+        'sessions_today': sessions_today,
+        'attendances_today': attendances_today,
+        'late_today': late_today,
+        'active_sessions_list': active_sessions_list,
+        'fraud_alerts_count': fraud_alerts_count,
+        'recent_activity': recent_activity,
+        'at_risk_students': at_risk_students,
+        'unit_comparison_data': unit_comparison_data
     }
     
     return render_template('lecturer_dashboard.html', 
