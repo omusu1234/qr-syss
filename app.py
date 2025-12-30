@@ -1761,11 +1761,44 @@ def lecturer_sessions():
         flash('Lecturer profile not found', 'error')
         return redirect(url_for('logout'))
     
-    sessions = LectureSession.query.join(Unit).filter(
+    all_sessions = LectureSession.query.join(Unit).filter(
         Unit.lecturer_id == lecturer.id
     ).order_by(LectureSession.created_at.desc()).all()
     
-    return render_template('lecturer_sessions.html', sessions=sessions)
+    # Group sessions by time periods
+    now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = (now - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = (now - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    sessions_today = []
+    sessions_this_week = []
+    sessions_this_month = []
+    sessions_older = []
+    
+    for session in all_sessions:
+        # Normalize session date to UTC (remove timezone if present)
+        session_date = session.created_at
+        if session_date.tzinfo is not None:
+            session_date = session_date.replace(tzinfo=None)
+        
+        if session_date >= today_start:
+            sessions_today.append(session)
+        elif session_date >= week_start:
+            sessions_this_week.append(session)
+        elif session_date >= month_start:
+            sessions_this_month.append(session)
+        else:
+            sessions_older.append(session)
+    
+    grouped_sessions = {
+        'today': sessions_today,
+        'this_week': sessions_this_week,
+        'this_month': sessions_this_month,
+        'older': sessions_older
+    }
+    
+    return render_template('lecturer_sessions.html', grouped_sessions=grouped_sessions, all_sessions=all_sessions)
 
 @app.route('/lecturer/view-qr/<int:session_id>')
 @lecturer_required
