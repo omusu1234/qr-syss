@@ -1711,6 +1711,42 @@ def manage_admins():
                         f'Created admin user {username}')
             flash(f'Admin {username} created successfully', 'success')
         
+        elif action == 'edit':
+            admin_id = request.form.get('admin_id')
+            admin = User.query.get_or_404(admin_id)
+            
+            if not admin.is_admin():
+                flash('User is not an admin', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            # Update user info
+            new_username = request.form.get('username')
+            new_email = request.form.get('email')
+            
+            # Check if username is being changed and if it's already taken
+            if new_username != admin.username:
+                if User.query.filter_by(username=new_username).first():
+                    flash('Username already exists', 'error')
+                    return redirect(url_for('manage_admins'))
+                admin.username = new_username
+            
+            # Check if email is being changed and if it's already taken
+            if new_email != admin.email:
+                if User.query.filter_by(email=new_email).first():
+                    flash('Email already exists', 'error')
+                    return redirect(url_for('manage_admins'))
+                admin.email = new_email
+            
+            # Update password if provided
+            new_password = request.form.get('password')
+            if new_password and new_password.strip():
+                admin.set_password(new_password)
+            
+            db.session.commit()
+            log_activity('edit_admin', 'user', admin.id, 
+                        f'Updated admin {admin.username}')
+            flash('Admin updated successfully', 'success')
+        
         elif action == 'reset_password':
             admin_id = request.form.get('admin_id')
             new_password = request.form.get('new_password')
