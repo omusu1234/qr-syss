@@ -52,6 +52,9 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('manage_lecturers') }}">Manage Lecturers</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('manage_admins') }}">Manage Admins</a>
+                    </li>
                     {% elif current_user.is_lecturer() %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('lecturer_dashboard') }}">Dashboard</a>

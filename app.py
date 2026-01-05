@@ -337,11 +337,13 @@ def dashboard():
 def admin_dashboard():
     lecturers = Lecturer.query.all()
     units = Unit.query.all()
+    admins = User.query.filter_by(role='admin').all()
     # Get recent notifications count
     recent_notifications = Notification.query.order_by(Notification.created_at.desc()).limit(5).all()
     return render_template('admin_dashboard.html', 
                          lecturers=lecturers, 
                          units=units,
+                         admins=admins,
                          recent_notifications=recent_notifications)
 
 @app.route('/lecturer/dashboard')
@@ -1671,6 +1673,73 @@ def manage_lecturers():
                          lecturers=lecturers, 
                          departments=departments,
                          units=units)
+
+@app.route('/admin/manage-admins', methods=['GET', 'POST'])
+@admin_required
+def manage_admins():
+    """Manage admin users - add new admins and reset passwords"""
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'create':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            
+            # Validate inputs
+            if not username or not email or not password:
+                flash('Please fill in all fields', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            # Check if username already exists
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            # Check if email already exists
+            if User.query.filter_by(email=email).first():
+                flash('Email already exists', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            # Create new admin user
+            admin = User(username=username, email=email, role='admin')
+            admin.set_password(password)
+            db.session.add(admin)
+            db.session.commit()
+            
+            log_activity('create_admin', 'user', admin.id, 
+                        f'Created admin user {username}')
+            flash(f'Admin {username} created successfully', 'success')
+        
+        elif action == 'reset_password':
+            admin_id = request.form.get('admin_id')
+            new_password = request.form.get('new_password')
+            
+            if not admin_id or not new_password:
+                flash('Please provide admin ID and new password', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            admin = User.query.get(admin_id)
+            if not admin:
+                flash('Admin not found', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            if not admin.is_admin():
+                flash('User is not an admin', 'error')
+                return redirect(url_for('manage_admins'))
+            
+            # Prevent admin from resetting their own password through this route
+            # (they should use a different mechanism for that)
+            admin.set_password(new_password)
+            db.session.commit()
+            
+            log_activity('reset_admin_password', 'user', admin.id, 
+                        f'Reset password for admin {admin.username}')
+            flash(f'Password reset successfully for {admin.username}', 'success')
+    
+    # Get all admin users
+    admins = User.query.filter_by(role='admin').order_by(User.created_at.desc()).all()
+    return render_template('manage_admins.html', admins=admins)
 
 @app.route('/admin/manage-departments', methods=['GET', 'POST'])
 @admin_required
