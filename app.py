@@ -6,6 +6,7 @@ from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notific
 from database_sync import DatabaseSync
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from collections import defaultdict
 import qrcode
 import io
@@ -1131,7 +1132,14 @@ def submit_attendance():
     except Exception as e:
         app.logger.warning(f"PhotoMatch table not available: {str(e)}")
     
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            'success': False, 
+            'message': 'You have already submitted attendance for this session'
+        }), 400
     
     late_msg = f" ({arrival_minutes_late} minutes late)" if is_late else ""
     log_activity('submit_attendance', 'attendance', attendance.id,
