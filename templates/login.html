@@ -100,13 +100,13 @@
 
     /* Typography */
     .login-header h2 {
-        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-blue) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         font-weight: 800;
         letter-spacing: -0.5px;
-        text-shadow: 0 2px 10px rgba(26, 71, 42, 0.3);
+        text-shadow: 0 2px 10px rgba(0, 77, 51, 0.2);
     }
 
     .login-header h3 {
@@ -173,7 +173,7 @@
 
     /* Button Styling - Official Colors */
     .btn-login {
-        background: linear-gradient(135deg, #0066cc 0%, #003366 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
         border: none;
         border-radius: 30px;
         color: white;
@@ -182,7 +182,7 @@
         position: relative;
         overflow: hidden;
         transition: all 0.3s ease;
-        box-shadow: 0 10px 20px rgba(0, 102, 204, 0.2);
+        box-shadow: 0 10px 20px rgba(0, 77, 51, 0.2);
         z-index: 1;
     }
 
@@ -203,8 +203,8 @@
 
     .btn-login:hover {
         transform: translateY(-3px);
-        box-shadow: 0 12px 35px rgba(0, 102, 204, 0.5);
-        background: linear-gradient(135deg, #003366 0%, #0066cc 100%);
+        box-shadow: 0 12px 35px rgba(0, 77, 51, 0.4);
+        background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
     }
 
     .btn-login:active {
