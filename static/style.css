@@ -408,3 +408,60 @@ h1, h2, h3, h4, h5, h6 {
     }
 }
 
+
+/* =========================================
+   Extended Button & Text Colors Cleanup
+   ========================================= */
+.btn-info {
+    background: linear-gradient(135deg, var(--accent-blue) 0%, #004080 100%);
+    border: none;
+    color: white;
+}
+.btn-info:hover {
+    background: linear-gradient(135deg, #002244 0%, var(--accent-blue) 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 51, 102, 0.4);
+}
+.btn-outline-secondary {
+    color: var(--text-muted);
+    border: 2px solid #ced4da;
+}
+.btn-outline-secondary:hover {
+    background: var(--bg-light);
+    color: var(--text-main);
+    border-color: #adb5bd;
+}
+.btn-outline-info {
+    color: var(--accent-blue);
+    border: 2px solid var(--accent-blue);
+}
+.btn-outline-info:hover {
+    background: var(--accent-blue);
+    color: white;
+}
+.btn-outline-success {
+    color: var(--primary-light);
+    border: 2px solid var(--primary-light);
+}
+.btn-outline-success:hover {
+    background: var(--primary-light);
+    color: white;
+}
+.btn-success {
+    background: linear-gradient(135deg, var(--primary-light) 0%, #008055 100%);
+    border: none;
+    color: white;
+}
+.btn-success:hover {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 102, 68, 0.4);
+    color: white;
+}
+/* Text Color Overrides */
+.text-primary { color: var(--primary-color) !important; }
+.text-success { color: var(--primary-light) !important; }
+.text-info { color: var(--accent-blue) !important; }
+.text-warning { color: var(--secondary-color) !important; }
+
