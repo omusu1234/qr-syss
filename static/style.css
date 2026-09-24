@@ -321,3 +321,90 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Override for login page */
 .login-container .main-container { background: transparent; box-shadow: none; padding: 0; max-width: 100%; border: none; }
+
+/* =========================================
+   Mobile-First Responsive Cleanup
+   ========================================= */
+@media (max-width: 768px) {
+    /* Main Layout Containers */
+    .main-container {
+        margin: 15px 10px !important;
+        padding: 20px 15px !important;
+        width: calc(100% - 20px) !important;
+        max-width: 100% !important;
+        border-radius: var(--radius-md) !important;
+    }
+
+    /* Attendance Card (Standalone form) */
+    .attendance-card {
+        margin: 15px 10px !important;
+        padding: 25px 15px !important;
+        width: calc(100% - 20px) !important;
+        max-width: 100% !important;
+    }
+
+    /* Page Titles & Headers */
+    .page-title {
+        font-size: 1.8rem !important;
+        margin-bottom: 20px !important;
+        word-wrap: break-word;
+        white-space: normal;
+    }
+    
+    /* Action bars (Headers with buttons next to them) */
+    .d-flex.justify-content-between {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+    
+    .d-flex.justify-content-between > div {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .d-flex.justify-content-between .btn {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    
+    /* Make inline forms stack vertically */
+    .input-group {
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .input-group > .form-control, 
+    .input-group > .form-select, 
+    .input-group > .btn {
+        width: 100% !important;
+        border-radius: var(--radius-sm) !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Tables Mobile Fix */
+    .table {
+        display: block !important;
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    .table th, .table td {
+        white-space: nowrap;
+    }
+    
+    /* Navbar adjustments */
+    .navbar-brand {
+        font-size: 1.1rem !important;
+    }
+
+    /* Fix hardcoded inline styles (e.g. style="max-width: 300px") */
+    [style*="max-width] {
+        max-width: 100% !important;
+    }
+}
+
