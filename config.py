@@ -9,8 +9,16 @@ class Config:
     # Supports both MySQL and PostgreSQL via DATABASE_URL environment variable
     # PostgreSQL format: postgresql://user:password@host:5432/database
     # MySQL format: mysql+pymysql://user:password@host:3306/database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://user:password@localhost:5432/qrattendance'
+    # Get the database URL and ensure it uses the psycopg2 driver
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url:
+        # SQLAlchemy 2.0+ can sometimes default to psycopg3. This forces it to use psycopg2-binary which we installed.
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
+        elif db_url.startswith('postgresql://'):
+            db_url = db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    
+    SQLALCHEMY_DATABASE_URI = db_url or 'postgresql+psycopg2://user:password@localhost:5432/qrattendance'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Additional database servers for synchronization
