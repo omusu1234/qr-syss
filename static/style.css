@@ -29,6 +29,40 @@
     --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+[data-bs-theme="dark"] {
+    --primary-color: #00cc88;
+    --primary-light: #33ffaa;
+    --primary-dark: #009966;
+    --bg-light: #121212;
+    --bg-white: #1e1e1e;
+    --text-main: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --shadow-sm: 0 4px 6px rgba(0,0,0,0.3);
+    --shadow-md: 0 10px 20px rgba(0,0,0,0.4);
+    --shadow-lg: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+[data-bs-theme="dark"] body {
+    background: linear-gradient(135deg, #121212 0%, #0a0a0a 100%);
+    color: var(--text-main);
+}
+
+[data-bs-theme="dark"] .navbar {
+    background: rgba(30, 30, 30, 0.85) !important;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: var(--bg-white);
+    border-color: var(--border-color);
+}
+
+[data-bs-theme="dark"] .list-group-item {
+    background-color: var(--bg-white);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
 body {
     font-family: 'Outfit', sans-serif;
     background: linear-gradient(135deg, var(--bg-light) 0%, #e0e8e5 100%);
