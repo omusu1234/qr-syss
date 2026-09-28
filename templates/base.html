@@ -6,6 +6,15 @@
     <title>{% block title %}Attendance System{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- Dark Mode Initialization -->
+    <script>
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('data-bs-theme', 'dark');
+        }
+    </script>
     <style>
         body {
             background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
@@ -71,6 +80,11 @@
                         </a>
                     </li>
                     {% endif %}
+                    <li class="nav-item d-flex align-items-center me-3">
+                        <button class="btn btn-outline-secondary btn-sm" id="themeToggle" aria-label="Toggle dark mode">
+                            <i class="bi bi-moon-stars"></i>
+                        </button>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
                     </li>
@@ -100,6 +114,37 @@
     {% endblock %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dark Mode Toggle Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('themeToggle');
+            const icon = toggleBtn?.querySelector('i');
+            
+            // Update icon on load
+            if(document.documentElement.getAttribute('data-bs-theme') === 'dark') {
+                if(icon) { icon.classList.remove('bi-moon-stars'); icon.classList.add('bi-sun'); }
+            }
+            
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', () => {
+                    const html = document.documentElement;
+                    const isDark = html.getAttribute('data-bs-theme') === 'dark';
+                    
+                    if (isDark) {
+                        html.removeAttribute('data-bs-theme');
+                        localStorage.setItem('theme', 'light');
+                        icon.classList.remove('bi-sun');
+                        icon.classList.add('bi-moon-stars');
+                    } else {
+                        html.setAttribute('data-bs-theme', 'dark');
+                        localStorage.setItem('theme', 'dark');
+                        icon.classList.remove('bi-moon-stars');
+                        icon.classList.add('bi-sun');
+                    }
+                });
+            }
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
