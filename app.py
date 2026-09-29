@@ -1007,12 +1007,10 @@ def submit_attendance():
     ).first()
     
     if existing_device_submission:
-        # TEMPORARILY DISABLED FOR TESTING FRAUD DETECTION
-        # return jsonify({
-        #     'success': False, 
-        #     'message': 'This device has already been used to submit attendance for this session. Each device can only be used once per session.'
-        # }), 429  # 429 Too Many Requests
-        pass
+        return jsonify({
+            'success': False, 
+            'message': 'This device has already been used to submit attendance for this session. Each device can only be used once per session.'
+        }), 429  # 429 Too Many Requests
     
     # Additional check: Verify the admission number doesn't already exist for this session
     # (Double-check even though we already checked above)
