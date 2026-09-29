@@ -202,7 +202,7 @@ def analyze_photo_for_fraud(photo_data, session_id, current_attendance_id=None):
         for existing in existing_attendances:
             # Check for duplicate photo
             if new_hash and existing.photo_hash:
-                if compare_photo_hashes(new_hash, existing.photo_hash, threshold=5):
+                if compare_photo_hashes(new_hash, existing.photo_hash, threshold=12):
                     matches['duplicates'].append({
                         'attendance_id': existing.id,
                         'admission_no': existing.admission_no,
