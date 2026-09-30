@@ -33,10 +33,21 @@ def triage_support_ticket(message):
     """
     
     try:
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-        )
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt,
+            )
+        except Exception as primary_e:
+            if "503" in str(primary_e):
+                print("Falling back to gemini-1.5-flash due to 503...")
+                response = client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=prompt,
+                )
+            else:
+                raise primary_e
+                
         # Parse the JSON response
         response_text = response.text.strip()
         # Clean up Markdown JSON formatting if Gemini wraps it
@@ -80,13 +91,27 @@ def chat_with_lecturer(query, context_data):
     """
     
     try:
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=query,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=query,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                )
             )
-        )
+        except Exception as primary_e:
+            if "503" in str(primary_e):
+                print("Falling back to gemini-1.5-flash due to 503...")
+                response = client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=query,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                    )
+                )
+            else:
+                raise primary_e
+                
         return response.text
     except Exception as e:
         error_msg = str(e)
@@ -115,10 +140,21 @@ def generate_early_warning_report(student_stats):
     """
     
     try:
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-        )
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.8-flash',
+                contents=prompt,
+            )
+        except Exception as primary_e:
+            if "503" in str(primary_e):
+                print("Falling back to gemini-1.5-flash due to 503...")
+                response = client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=prompt,
+                )
+            else:
+                raise primary_e
+                
         return response.text
     except Exception as e:
         error_msg = str(e)
