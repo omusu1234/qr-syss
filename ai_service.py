@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from google import genai
 from google.genai import types
 
@@ -40,9 +41,10 @@ def triage_support_ticket(message):
             )
         except Exception as primary_e:
             if "503" in str(primary_e):
-                print("Falling back to gemini-1.5-flash due to 503...")
+                print("Google API busy, retrying once...")
+                time.sleep(1.5)
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-3.8-flash',
                     contents=prompt,
                 )
             else:
@@ -101,9 +103,10 @@ def chat_with_lecturer(query, context_data):
             )
         except Exception as primary_e:
             if "503" in str(primary_e):
-                print("Falling back to gemini-1.5-flash due to 503...")
+                print("Google API busy, retrying once...")
+                time.sleep(1.5)
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-3.8-flash',
                     contents=query,
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
@@ -115,6 +118,8 @@ def chat_with_lecturer(query, context_data):
         return response.text
     except Exception as e:
         error_msg = str(e)
+        if "503" in error_msg:
+            return "Google's AI servers are currently experiencing high demand. Please try again in a few moments."
         print(f"AI Chat Error: {error_msg}")
         return f"Sorry, I encountered an error: {error_msg}"
 
@@ -147,9 +152,10 @@ def generate_early_warning_report(student_stats):
             )
         except Exception as primary_e:
             if "503" in str(primary_e):
-                print("Falling back to gemini-1.5-flash due to 503...")
+                print("Google API busy, retrying once...")
+                time.sleep(1.5)
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-3.8-flash',
                     contents=prompt,
                 )
             else:
@@ -158,5 +164,7 @@ def generate_early_warning_report(student_stats):
         return response.text
     except Exception as e:
         error_msg = str(e)
+        if "503" in error_msg:
+            return "Google's AI servers are extremely busy right now. Please check back in a few minutes."
         print(f"AI Analytics Error: {error_msg}")
         return f"Analytics engine is currently down. Error: {error_msg}"
