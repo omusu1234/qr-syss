@@ -34,7 +34,7 @@ def triage_support_ticket(message):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=prompt,
         )
         # Parse the JSON response
@@ -81,7 +81,7 @@ def chat_with_lecturer(query, context_data):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=query,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -116,7 +116,7 @@ def generate_early_warning_report(student_stats):
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=prompt,
         )
         return response.text
