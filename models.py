@@ -217,3 +217,20 @@ class PhotoMatch(db.Model):
         db.UniqueConstraint('source_attendance_id', 'target_attendance_id', name='unique_photo_match'),
     )
 
+
+class SupportTicket(db.Model):
+    __tablename__ = 'support_tickets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturers.id'), nullable=False)
+    subject = db.Column(db.String(150), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='Open', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    
+    # Relationships
+    lecturer = db.relationship('Lecturer', backref=db.backref('support_tickets', lazy=True))
+    resolver = db.relationship('User', foreign_keys=[resolved_by])
+

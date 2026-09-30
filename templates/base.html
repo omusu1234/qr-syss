@@ -42,6 +42,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('manage_admins') }}">Manage Admins</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_support') }}">
+                            <i class="bi bi-life-preserver"></i> Support Tickets
+                        </a>
+                    </li>
                     {% elif current_user.is_lecturer() %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('lecturer_dashboard') }}">Dashboard</a>
@@ -55,6 +60,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('view_notifications') }}">
                             <i class="bi bi-bell"></i> Notifications
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('lecturer_support') }}">
+                            <i class="bi bi-envelope-paper"></i> Support
                         </a>
                     </li>
                     {% endif %}
