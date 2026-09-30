@@ -9,12 +9,24 @@
     --secondary-light: #ffbb33;
     --accent-blue: #003366; /* Navy Blue Accent */
     
-    /* Neutral & Background */
-    --bg-light: #f4f7f6;
-    --bg-white: #ffffff;
-    --text-main: #2c3e50;
-    --text-muted: #6c757d;
+    /* Semantic Background & Surface Hierarchy (Light Mode) */
+    --bg-page: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-card: #ffffff;
+    
+    /* Semantic Text Hierarchy */
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    
+    /* Borders & Lines */
     --border-color: rgba(0, 77, 51, 0.1);
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    
+    /* Legacy variables mapping to new ones */
+    --bg-light: var(--bg-page);
+    --bg-white: var(--bg-surface);
+    --text-main: var(--text-primary);
     
     /* Effects */
     --shadow-sm: 0 4px 6px rgba(0,0,0,0.05);
@@ -30,54 +42,85 @@
 }
 
 [data-bs-theme="dark"] {
+    /* Greens adapted for dark mode */
     --primary-color: #00cc88;
     --primary-light: #33ffaa;
     --primary-dark: #009966;
-    --bg-light: #121212;
-    --bg-white: #1e1e1e;
-    --text-main: #e0e0e0;
-    --text-muted: #a0a0a0;
-    --border-color: rgba(255, 255, 255, 0.1);
-    --shadow-sm: 0 4px 6px rgba(0,0,0,0.3);
-    --shadow-md: 0 10px 20px rgba(0,0,0,0.4);
-    --shadow-lg: 0 20px 40px rgba(0,0,0,0.5);
+    
+    /* Semantic Background & Surface Hierarchy (Dark Mode) */
+    --bg-page: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-card: #26334d;
+    
+    /* Semantic Text Hierarchy */
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    
+    /* Borders & Lines */
+    --border-color: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    
+    /* Legacy variables */
+    --bg-light: var(--bg-page);
+    --bg-white: var(--bg-surface);
+    --text-main: var(--text-primary);
+    
+    /* Subtle Shadows for Dark Mode (Reduced intensity, soft glowing borders) */
+    --shadow-sm: 0 4px 6px rgba(0,0,0,0.4);
+    --shadow-md: 0 10px 20px rgba(0,0,0,0.5);
+    --shadow-lg: 0 20px 40px rgba(0,0,0,0.6);
 }
 
-[data-bs-theme="dark"] body {
-    background: linear-gradient(135deg, #121212 0%, #0a0a0a 100%);
-    color: var(--text-main);
-}
-
-[data-bs-theme="dark"] .navbar {
-    background: rgba(30, 30, 30, 0.85) !important;
-}
-
-[data-bs-theme="dark"] .card {
-    background-color: var(--bg-white);
-    border-color: var(--border-color);
-}
-
-[data-bs-theme="dark"] .list-group-item {
-    background-color: var(--bg-white);
-    border-color: var(--border-color);
-    color: var(--text-main);
-}
+/* Removed hardcoded dark theme overrides because we now use CSS variables universally */
 
 body {
     font-family: 'Outfit', sans-serif;
-    background: linear-gradient(135deg, var(--bg-light) 0%, #e0e8e5 100%);
-    color: var(--text-main);
+    background: var(--bg-page);
+    color: var(--text-primary);
     min-height: 100vh;
     margin: 0;
     -webkit-font-smoothing: antialiased;
 }
 
+/* Global Container Styles */
+.main-container {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-subtle);
+    margin: 20px auto;
+    padding: 30px;
+    max-width: 1200px;
+    color: var(--text-primary);
+}
+
+.login-container .main-container {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    max-width: 100%;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border-color: var(--border-subtle);
+    box-shadow: var(--shadow-sm);
+}
+
+.list-group-item {
+    background-color: var(--bg-card);
+    border-color: var(--border-subtle);
+    color: var(--text-primary);
+}
+
 /* Glassmorphism Navbar */
 .navbar {
-    background: rgba(255, 255, 255, 0.85) !important;
+    background: var(--bg-surface) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-subtle);
     box-shadow: var(--shadow-sm);
     padding: 15px 0;
     transition: var(--transition);

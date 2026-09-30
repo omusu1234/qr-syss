@@ -38,9 +38,9 @@
 <!-- Today's Summary Card -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-calendar-day"></i> Today's Summary</h5>
+        <div class="card shadow-sm" style="border-top: 4px solid var(--primary-color);">
+            <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+                <h5 class="mb-0 text-primary"><i class="bi bi-calendar-day"></i> Today's Summary</h5>
             </div>
             <div class="card-body">
                 <div class="row text-center">
@@ -78,7 +78,7 @@
                 <div class="row">
                     {% for session in stats.active_sessions_list %}
                     <div class="col-md-6 mb-3">
-                        <div class="card border-success">
+                        <div class="card shadow-sm h-100" style="border-top: 3px solid var(--primary-color);">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <h6 class="card-title mb-0">{{ session.name }}</h6>

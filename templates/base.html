@@ -16,29 +16,7 @@
         }
     </script>
     <style>
-        body {
-            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            min-height: 100vh;
-        }
-        /* Override for login page */
-        .login-container .main-container {
-            background: transparent;
-            box-shadow: none;
-            padding: 0;
-            max-width: 100%;
-        }
-        .main-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin: 20px auto;
-            padding: 30px;
-            max-width: 1200px;
-        }
-        .navbar {
-            background: rgba(255,255,255,0.95) !important;
-            backdrop-filter: blur(10px);
-        }
+        /* Base styles moved to style.css to support CSS variable theming */
     </style>
     {% block extra_css %}{% endblock %}
 </head>
