@@ -89,8 +89,9 @@ def chat_with_lecturer(query, context_data):
         )
         return response.text
     except Exception as e:
-        print(f"AI Chat Error: {e}")
-        return "Sorry, I encountered an error while processing your request."
+        error_msg = str(e)
+        print(f"AI Chat Error: {error_msg}")
+        return f"Sorry, I encountered an error: {error_msg}"
 
 def generate_early_warning_report(student_stats):
     """
@@ -120,5 +121,6 @@ def generate_early_warning_report(student_stats):
         )
         return response.text
     except Exception as e:
-        print(f"AI Analytics Error: {e}")
-        return "Analytics engine is currently down."
+        error_msg = str(e)
+        print(f"AI Analytics Error: {error_msg}")
+        return f"Analytics engine is currently down. Error: {error_msg}"
