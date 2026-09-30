@@ -391,20 +391,22 @@ document.getElementById('searchAttendance')?.addEventListener('keyup', function(
     document.getElementById('attendanceCount').textContent = visibleCount;
 });
 
-// Photo Zoom Functionality
-let zoomed = false;
 function toggleZoom(imgElement) {
-    if (!zoomed) {
+    const isZoomed = imgElement.dataset.zoomed === 'true';
+    
+    if (!isZoomed) {
+        // Find the bounding box to center the zoom
         imgElement.style.transform = 'scale(2)';
+        imgElement.style.transformOrigin = 'center center';
         imgElement.style.transition = 'transform 0.3s ease';
         imgElement.style.cursor = 'zoom-out';
-        imgElement.style.zIndex = '1000';
-        zoomed = true;
+        imgElement.style.zIndex = '1050';
+        imgElement.dataset.zoomed = 'true';
     } else {
         imgElement.style.transform = 'scale(1)';
         imgElement.style.cursor = 'zoom-in';
         imgElement.style.zIndex = 'auto';
-        zoomed = false;
+        imgElement.dataset.zoomed = 'false';
     }
 }
 
@@ -422,8 +424,8 @@ function rotatePhoto(imgId) {
     img.style.transform = `rotate(${rotation[imgId]}deg)`;
     img.style.transition = 'transform 0.3s ease';
     
-    // Reset zoom when rotating
-    if (zoomed) {
+    const isZoomed = img.dataset.zoomed === 'true';
+    if (isZoomed) {
         toggleZoom(img);
     }
 }
@@ -484,9 +486,9 @@ document.addEventListener('hidden.bs.modal', function(event) {
             img.style.transform = '';
             img.style.cursor = 'zoom-in';
             img.style.zIndex = 'auto';
+            img.dataset.zoomed = 'false';
         });
     });
-    zoomed = false;
     rotation = {};
 });
 
