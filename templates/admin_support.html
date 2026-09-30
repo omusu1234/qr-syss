@@ -40,6 +40,16 @@
                                 </td>
                                 <td>
                                     <div class="fw-bold">{{ ticket.subject }}</div>
+                                    <div class="mt-1 mb-2">
+                                        <span class="badge rounded-pill bg-info text-dark"><i class="bi bi-tag"></i> {{ ticket.category }}</span>
+                                        {% if ticket.priority == 'High' %}
+                                        <span class="badge rounded-pill bg-danger"><i class="bi bi-exclamation-circle"></i> High Priority</span>
+                                        {% elif ticket.priority == 'Medium' %}
+                                        <span class="badge rounded-pill bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Medium Priority</span>
+                                        {% else %}
+                                        <span class="badge rounded-pill bg-success"><i class="bi bi-check-circle"></i> Low Priority</span>
+                                        {% endif %}
+                                    </div>
                                     <div class="small text-muted text-wrap" style="max-width: 400px; max-height: 4.5em; overflow: hidden; text-overflow: ellipsis;">
                                         {{ ticket.message }}
                                     </div>

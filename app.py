@@ -4,6 +4,7 @@ from config import Config
 from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notification, Department, ActivityLog, LoginHistory, SupportTicket
 # PhotoMatch is imported conditionally where needed to handle cases where table doesn't exist yet
 from database_sync import DatabaseSync
+import ai_service
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from collections import defaultdict
@@ -571,6 +572,11 @@ def lecturer_dashboard():
     # Sort by attendance rate (highest first)
     unit_comparison_data.sort(key=lambda x: x['attendance_rate'], reverse=True)
     
+    # Generate AI Early Warning Report
+    ai_warning_report = None
+    if at_risk_students:
+        ai_warning_report = ai_service.generate_early_warning_report(at_risk_students)
+        
     stats = {
         'total_sessions': total_sessions,
         'active_sessions': active_sessions,
@@ -589,7 +595,8 @@ def lecturer_dashboard():
         'fraud_alerts_count': fraud_alerts_count,
         'recent_activity': recent_activity,
         'at_risk_students': at_risk_students,
-        'unit_comparison_data': unit_comparison_data
+        'unit_comparison_data': unit_comparison_data,
+        'ai_warning_report': ai_warning_report
     }
     
     return render_template('lecturer_dashboard.html', 
@@ -2618,6 +2625,49 @@ def export_attendance_by_department():
 
 
 # ==========================================
+# AI INTEGRATION (CHATBOT & ANALYTICS)
+# ==========================================
+
+@app.route('/api/ai_chat', methods=['POST'])
+@login_required
+def api_ai_chat():
+    if current_user.role != 'lecturer':
+        return jsonify({"error": "Unauthorized"}), 403
+        
+    data = request.get_json()
+    query = data.get('query')
+    if not query:
+        return jsonify({"error": "Query is required"}), 400
+        
+    lecturer = Lecturer.query.filter_by(user_id=current_user.id).first()
+    if not lecturer:
+        return jsonify({"error": "Lecturer profile not found"}), 404
+        
+    # Build context for the AI
+    units = [{"code": u.code, "name": u.name} for u in lecturer.units]
+    
+    # Get recent sessions and attendance
+    recent_sessions = LectureSession.query.filter_by(lecturer_id=lecturer.id).order_by(LectureSession.created_at.desc()).limit(5).all()
+    sessions_data = []
+    for s in recent_sessions:
+        attendance_count = Attendance.query.filter_by(session_id=s.id).count()
+        sessions_data.append({
+            "unit": s.unit.code,
+            "date": s.created_at.strftime("%Y-%m-%d %H:%M"),
+            "attendance_count": attendance_count
+        })
+        
+    context = {
+        "lecturer_name": lecturer.full_name,
+        "department": lecturer.department.name if lecturer.department else "Unknown",
+        "assigned_units": units,
+        "recent_sessions_and_attendance": sessions_data
+    }
+    
+    response_text = ai_service.chat_with_lecturer(query, context)
+    return jsonify({"response": response_text})
+
+# ==========================================
 # SUPPORT TICKETING SYSTEM
 # ==========================================
 
@@ -2640,11 +2690,16 @@ def lecturer_support():
         if not subject or not message:
             flash('Subject and message are required', 'error')
         else:
+            # AI Triage
+            ai_data = ai_service.triage_support_ticket(message)
+            
             ticket = SupportTicket(
                 lecturer_id=lecturer.id,
                 subject=subject,
                 message=message,
-                status='Open'
+                status='Open',
+                category=ai_data.get('category', 'General'),
+                priority=ai_data.get('priority', 'Medium')
             )
             db.session.add(ticket)
             db.session.commit()

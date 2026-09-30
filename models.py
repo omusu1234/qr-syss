@@ -226,6 +226,8 @@ class SupportTicket(db.Model):
     subject = db.Column(db.String(150), nullable=False)
     message = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(20), default='Open', nullable=False)
+    category = db.Column(db.String(50), default='General')
+    priority = db.Column(db.String(20), default='Medium')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
     resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)

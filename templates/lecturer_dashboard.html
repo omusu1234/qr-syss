@@ -35,6 +35,14 @@
 </div>
 {% endif %}
 
+<!-- AI Early Warning Report -->
+{% if stats.ai_warning_report %}
+<div class="alert alert-info shadow-sm mb-4" role="alert" style="border-left: 5px solid #0dcaf0;">
+    <h5 class="alert-heading text-info-emphasis"><i class="bi bi-robot"></i> AI Analytics: Early Warning</h5>
+    <p class="mb-0 text-dark">{{ stats.ai_warning_report }}</p>
+</div>
+{% endif %}
+
 <!-- Today's Summary Card -->
 <div class="row mb-4">
     <div class="col-12">
@@ -576,6 +584,118 @@
         updateCountdowns();
         setInterval(updateCountdowns, 1000);
     }
+</script>
+<!-- AI Chat Widget -->
+<div id="ai-chat-widget" style="position: fixed; bottom: 30px; right: 30px; z-index: 1050;">
+    <!-- Chat Toggle Button -->
+    <button id="ai-chat-toggle" class="btn btn-primary rounded-circle shadow-lg" style="width: 60px; height: 60px; font-size: 24px;">
+        <i class="bi bi-chat-dots-fill"></i>
+    </button>
+    
+    <!-- Chat Window -->
+    <div id="ai-chat-window" class="card shadow-lg d-none" style="position: absolute; bottom: 75px; right: 0; width: 350px; height: 450px; overflow: hidden; border-radius: 15px;">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fs-6"><i class="bi bi-robot"></i> AI Assistant</h5>
+            <button id="ai-chat-close" class="btn btn-sm btn-link text-white p-0"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div id="ai-chat-messages" class="card-body bg-light" style="overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            <div class="text-start">
+                <span class="badge bg-secondary text-wrap p-2 text-start rounded-3" style="max-width: 85%;">
+                    Hello! I'm your AI assistant. How can I help you analyze your attendance data today?
+                </span>
+            </div>
+        </div>
+        <div class="card-footer bg-white p-2">
+            <form id="ai-chat-form" class="d-flex gap-2">
+                <input type="text" id="ai-chat-input" class="form-control form-control-sm rounded-pill" placeholder="Ask something..." required>
+                <button type="submit" class="btn btn-primary btn-sm rounded-circle" style="width: 32px; height: 32px;"><i class="bi bi-send-fill"></i></button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // AI Chat Widget Logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('ai-chat-toggle');
+        const closeBtn = document.getElementById('ai-chat-close');
+        const chatWindow = document.getElementById('ai-chat-window');
+        const chatForm = document.getElementById('ai-chat-form');
+        const chatInput = document.getElementById('ai-chat-input');
+        const chatMessages = document.getElementById('ai-chat-messages');
+        
+        toggleBtn.addEventListener('click', () => {
+            chatWindow.classList.toggle('d-none');
+            if (!chatWindow.classList.contains('d-none')) {
+                chatInput.focus();
+            }
+        });
+        
+        closeBtn.addEventListener('click', () => {
+            chatWindow.classList.add('d-none');
+        });
+        
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            // Add user message
+            chatMessages.innerHTML += `
+                <div class="text-end">
+                    <span class="badge bg-primary text-wrap p-2 text-start rounded-3" style="max-width: 85%;">
+                        ${message}
+                    </span>
+                </div>
+            `;
+            chatInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Add loading indicator
+            const loadingId = 'loading-' + Date.now();
+            chatMessages.innerHTML += `
+                <div class="text-start" id="${loadingId}">
+                    <span class="badge bg-secondary text-wrap p-2 text-start rounded-3" style="max-width: 85%;">
+                        <div class="spinner-border spinner-border-sm" role="status"></div> Thinking...
+                    </span>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                const response = await fetch('/api/ai_chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: message })
+                });
+                const data = await response.json();
+                
+                // Remove loading
+                document.getElementById(loadingId).remove();
+                
+                // Format markdown links or basic text if needed, here just raw text
+                const formattedResponse = data.response || data.error || 'No response';
+                
+                chatMessages.innerHTML += `
+                    <div class="text-start">
+                        <span class="badge bg-secondary text-wrap p-2 text-start rounded-3" style="max-width: 85%;">
+                            ${formattedResponse}
+                        </span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById(loadingId).remove();
+                chatMessages.innerHTML += `
+                    <div class="text-start">
+                        <span class="badge bg-danger text-wrap p-2 text-start rounded-3" style="max-width: 85%;">
+                            Error connecting to AI service.
+                        </span>
+                    </div>
+                `;
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+    });
 </script>
 {% endblock %}
 
