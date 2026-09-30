@@ -44,7 +44,7 @@
                                         {{ ticket.message }}
                                     </div>
                                 </td>
-                                <td class="small">{{ ticket.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td class="small">{{ (ticket.created_at|localtime).strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>
                                     {% if ticket.status == 'Open' %}
                                     <span class="badge bg-danger">Needs Action</span>
@@ -52,7 +52,7 @@
                                     <span class="badge bg-success">Resolved</span>
                                     <div class="small text-muted mt-1" style="font-size: 0.7rem;">
                                         by {{ ticket.resolver.username }}<br>
-                                        at {{ ticket.resolved_at.strftime('%m-%d %H:%M') }}
+                                        at {{ (ticket.resolved_at|localtime).strftime('%m-%d %H:%M') }}
                                     </div>
                                     {% endif %}
                                 </td>
