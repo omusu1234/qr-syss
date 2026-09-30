@@ -2647,7 +2647,8 @@ def api_ai_chat():
     units = [{"code": u.code, "name": u.name} for u in lecturer.units]
     
     # Get recent sessions and attendance
-    recent_sessions = LectureSession.query.filter_by(lecturer_id=lecturer.id).order_by(LectureSession.created_at.desc()).limit(5).all()
+    unit_ids = [u.id for u in lecturer.units]
+    recent_sessions = LectureSession.query.filter(LectureSession.unit_id.in_(unit_ids)).order_by(LectureSession.created_at.desc()).limit(5).all()
     sessions_data = []
     for s in recent_sessions:
         attendance_count = Attendance.query.filter_by(session_id=s.id).count()
