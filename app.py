@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
-from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notification, Department, ActivityLog, LoginHistory
+from models import db, User, Lecturer, Unit, LectureSession, Attendance, Notification, Department, ActivityLog, LoginHistory, SupportTicket
 # PhotoMatch is imported conditionally where needed to handle cases where table doesn't exist yet
 from database_sync import DatabaseSync
 from datetime import datetime, timedelta, timezone
@@ -2662,10 +2662,7 @@ def admin_support():
         return redirect(url_for('dashboard'))
         
     tickets = SupportTicket.query.order_by(
-        db.case(
-            (SupportTicket.status == 'Open', 1),
-            else_=2
-        ),
+        SupportTicket.status.asc(),
         SupportTicket.created_at.desc()
     ).all()
     
